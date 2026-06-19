@@ -1,0 +1,73 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { auth, signIn, signOut } from "@/lib/auth";
+import * as tasks from "@/lib/tasks";
+
+async function requireSession() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not signed in.");
+  return session;
+}
+
+export async function doSignIn() {
+  await signIn("google");
+}
+
+export async function doSignOut() {
+  await signOut();
+}
+
+export async function createBoardAction(formData: FormData) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can create a board/main task.");
+
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const credits = Number(formData.get("credits"));
+  if (!title) throw new Error("Title is required.");
+  if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
+
+  await tasks.createRootTask(session.user.id, { title, description, credits });
+  revalidatePath("/");
+}
+
+export async function createSubtaskAction(formData: FormData) {
+  const session = await requireSession();
+
+  const parentId = String(formData.get("parentId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const credits = Number(formData.get("credits"));
+  if (!title) throw new Error("Title is required.");
+  if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
+
+  const created = await tasks.createSubtask(session.user.id, parentId, {
+    title,
+    description,
+    credits,
+  });
+  revalidatePath(`/board/${created.boardId}`);
+}
+
+export async function assignToSelfAction(boardId: string, taskId: string) {
+  const session = await requireSession();
+  await tasks.assignToSelf(session.user.id, taskId);
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function submitForReviewAction(boardId: string, taskId: string) {
+  const session = await requireSession();
+  await tasks.submitForReview(session.user.id, taskId);
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function reviewTaskAction(
+  boardId: string,
+  taskId: string,
+  decision: "approve" | "reject"
+) {
+  const session = await requireSession();
+  await tasks.reviewTask(session.user.id, taskId, decision);
+  revalidatePath(`/board/${boardId}`);
+}

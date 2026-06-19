@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  isOwner       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  createdTasks  Task[]   @relation("CreatedTasks")
+  assignedTasks Task[]   @relation("AssignedTasks")
+
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  credits     Int
+  status      TaskStatus @default(TODO)
+
+  // boardId points at the root task of the lineage (a root task's boardId == its own id)
+  boardId     String
+  board       Task?      @relation("BoardTasks", fields: [boardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  boardTasks  Task[]     @relation("BoardTasks")
+
+  parentId    String?
+  parent      Task?      @relation("TaskLineage", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children    Task[]     @relation("TaskLineage")
+
+  createdById   String
+  createdBy     User     @relation("CreatedTasks", fields: [createdById], references: [id])
+
+  assignedToId  String?
+  assignedTo    User?    @relation("AssignedTasks", fields: [assignedToId], references: [id])
+
+  createdAt   DateTime   @default(now())
+  assignedAt  DateTime?
+  submittedAt DateTime?
+  completedAt DateTime?
+
+  @@index([boardId])
+  @@index([parentId])
+  @@index([status])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
