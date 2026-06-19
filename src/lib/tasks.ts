@@ -169,4 +169,29 @@ export async function getLeaderboard() {
   return Array.from(totals.values()).sort((a, b) => b.credits - a.credits);
 }
 
+export async function deleteBoard(boardId: string) {
+  return prisma.$transaction(async (tx) => {
+    const tasks = await tx.task.findMany({ where: { boardId } });
+    const root = tasks.find((t) => t.parentId === null);
+    if (!root || root.id !== boardId) throw new TaskError("Board not found.");
+
+    const remaining = new Map(tasks.map((t) => [t.id, t]));
+    while (remaining.size > 0) {
+      const referenced = new Set<string>();
+      for (const t of remaining.values()) {
+        if (t.parentId) referenced.add(t.parentId);
+        if (t.boardId !== t.id) referenced.add(t.boardId);
+      }
+      const deletable = [...remaining.values()].filter((t) => !referenced.has(t.id));
+      if (deletable.length === 0) {
+        throw new TaskError("Could not resolve task lineage for deletion.");
+      }
+      for (const t of deletable) {
+        await tx.task.delete({ where: { id: t.id } });
+        remaining.delete(t.id);
+      }
+    }
+  });
+}
+
 export { netCredits };

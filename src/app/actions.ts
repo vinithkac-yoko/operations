@@ -71,3 +71,11 @@ export async function reviewTaskAction(
   await tasks.reviewTask(session.user.id, taskId, decision);
   revalidatePath(`/board/${boardId}`);
 }
+
+export async function deleteBoardAction(boardId: string) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can delete boards.");
+  await tasks.deleteBoard(boardId);
+  revalidatePath("/");
+  revalidatePath("/leaderboard");
+}

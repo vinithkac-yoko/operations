@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { listBoards, netCredits } from "@/lib/tasks";
-import { createBoardAction } from "@/app/actions";
+import { createBoardAction, deleteBoardAction } from "@/app/actions";
 import { STATUS_BADGE, STATUS_LABEL } from "@/lib/status-styles";
+import { DeleteBoardButton } from "@/app/delete-board-button";
 
 export default async function HomePage() {
   const session = await auth();
@@ -55,27 +56,33 @@ export default async function HomePage() {
             <p className="text-zinc-500 text-sm">No boards yet.</p>
           )}
           {boards.map((board) => (
-            <Link
+            <div
               key={board.id}
-              href={`/board/${board.id}`}
-              className="block bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors"
+              className="relative block bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors"
             >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium text-zinc-100">{board.title}</span>
-                <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${STATUS_BADGE[board.status]}`}>
-                  {STATUS_LABEL[board.status]}
-                </span>
-              </div>
-              <p className="text-sm text-zinc-400 mt-1">
-                <span className="text-amber-400 font-semibold">{board.credits} credits</span> ·
-                created by {board.createdBy.name ?? board.createdBy.email}
-                {board.assignedTo &&
-                  ` · assigned to ${board.assignedTo.name ?? board.assignedTo.email}`}
-              </p>
-              <p className="text-xs text-zinc-500 mt-1">
-                {netCredits(board)} credit(s) unclaimed at this level
-              </p>
-            </Link>
+              {session.user.isOwner && (
+                <div className="absolute top-3 right-3">
+                  <DeleteBoardButton boardId={board.id} deleteAction={deleteBoardAction} />
+                </div>
+              )}
+              <Link href={`/board/${board.id}`} className="block pr-16">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-zinc-100">{board.title}</span>
+                  <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${STATUS_BADGE[board.status]}`}>
+                    {STATUS_LABEL[board.status]}
+                  </span>
+                </div>
+                <p className="text-sm text-zinc-400 mt-1">
+                  <span className="text-amber-400 font-semibold">{board.credits} credits</span> ·
+                  created by {board.createdBy.name ?? board.createdBy.email}
+                  {board.assignedTo &&
+                    ` · assigned to ${board.assignedTo.name ?? board.assignedTo.email}`}
+                </p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {netCredits(board)} credit(s) unclaimed at this level
+                </p>
+              </Link>
+            </div>
           ))}
         </div>
       </section>
