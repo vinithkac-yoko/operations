@@ -10,6 +10,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [Google],
   session: { strategy: "database" },
+  trustHost: true,
   callbacks: {
     signIn: async ({ user }) => {
       if (!allowedDomain) return true;
