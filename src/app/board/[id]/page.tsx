@@ -11,7 +11,7 @@ export default async function BoardPage({
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
-    return <div className="text-center text-gray-500 mt-24">Sign in to view this board.</div>;
+    return <div className="text-center text-zinc-500 mt-24">Sign in to view this board.</div>;
   }
 
   const tasks = await getBoardTree(id);
@@ -20,7 +20,7 @@ export default async function BoardPage({
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">{root.title}</h1>
+      <h1 className="text-xl font-semibold text-zinc-100">{root.title}</h1>
       <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} />
     </div>
   );

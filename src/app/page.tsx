@@ -2,13 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { listBoards, netCredits } from "@/lib/tasks";
 import { createBoardAction } from "@/app/actions";
-
-const STATUS_LABEL: Record<string, string> = {
-  TODO: "Todo",
-  IN_PROGRESS: "In progress",
-  IN_REVIEW: "In review",
-  DONE: "Done",
-};
+import { STATUS_BADGE, STATUS_LABEL } from "@/lib/status-styles";
 
 export default async function HomePage() {
   const session = await auth();
@@ -16,7 +10,7 @@ export default async function HomePage() {
 
   if (!session?.user) {
     return (
-      <div className="text-center text-gray-500 mt-24">
+      <div className="text-center text-zinc-500 mt-24">
         Sign in to view the boards.
       </div>
     );
@@ -25,19 +19,19 @@ export default async function HomePage() {
   return (
     <div className="space-y-10">
       {session.user.isOwner && (
-        <section className="bg-white border rounded-lg p-5">
-          <h2 className="font-semibold mb-3">New main task (board)</h2>
+        <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <h2 className="font-semibold mb-3 text-zinc-100">New main task (board)</h2>
           <form action={createBoardAction} className="grid gap-3 max-w-md">
             <input
               name="title"
               placeholder="Title"
               required
-              className="border rounded px-3 py-2 text-sm"
+              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
             />
             <textarea
               name="description"
               placeholder="Description (optional)"
-              className="border rounded px-3 py-2 text-sm"
+              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
             />
             <input
               name="credits"
@@ -45,9 +39,9 @@ export default async function HomePage() {
               min={1}
               placeholder="Total credits"
               required
-              className="border rounded px-3 py-2 text-sm"
+              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
             />
-            <button className="bg-gray-900 text-white rounded px-3 py-2 text-sm w-fit">
+            <button className="bg-amber-500 text-zinc-950 font-semibold rounded-md px-4 py-2 text-sm w-fit hover:bg-amber-400 transition-colors shadow-[0_0_20px_-4px_rgba(245,158,11,0.8)]">
               Create board
             </button>
           </form>
@@ -55,30 +49,30 @@ export default async function HomePage() {
       )}
 
       <section>
-        <h2 className="font-semibold mb-3">Boards</h2>
+        <h2 className="font-semibold mb-3 text-zinc-100">Boards</h2>
         <div className="grid gap-3">
           {boards.length === 0 && (
-            <p className="text-gray-500 text-sm">No boards yet.</p>
+            <p className="text-zinc-500 text-sm">No boards yet.</p>
           )}
           {boards.map((board) => (
             <Link
               key={board.id}
               href={`/board/${board.id}`}
-              className="block bg-white border rounded-lg p-4 hover:border-gray-400"
+              className="block bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{board.title}</span>
-                <span className="text-xs rounded bg-gray-100 px-2 py-1">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-medium text-zinc-100">{board.title}</span>
+                <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${STATUS_BADGE[board.status]}`}>
                   {STATUS_LABEL[board.status]}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
-                {board.credits} total credits · created by{" "}
-                {board.createdBy.name ?? board.createdBy.email}
+              <p className="text-sm text-zinc-400 mt-1">
+                <span className="text-amber-400 font-semibold">{board.credits} credits</span> ·
+                created by {board.createdBy.name ?? board.createdBy.email}
                 {board.assignedTo &&
                   ` · assigned to ${board.assignedTo.name ?? board.assignedTo.email}`}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-zinc-500 mt-1">
                 {netCredits(board)} credit(s) unclaimed at this level
               </p>
             </Link>
