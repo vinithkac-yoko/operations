@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { TaskStatus } from "@prisma/client";
+import { BoardTag, TaskStatus } from "@prisma/client";
 
 export class TaskError extends Error {}
+
+export type BoardSort = "newest" | "oldest" | "tag";
 
 function netCredits<T extends { credits: number; children: { credits: number }[] }>(
   task: T
@@ -10,11 +12,18 @@ function netCredits<T extends { credits: number; children: { credits: number }[]
   return task.credits - claimed;
 }
 
-export async function listBoards() {
+export async function listBoards(sort: BoardSort = "newest") {
+  const orderBy =
+    sort === "oldest"
+      ? { createdAt: "asc" as const }
+      : sort === "tag"
+        ? [{ tag: "asc" as const }, { createdAt: "desc" as const }]
+        : { createdAt: "desc" as const };
+
   return prisma.task.findMany({
     where: { parentId: null },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
-    orderBy: { createdAt: "desc" },
+    orderBy,
   });
 }
 
@@ -29,7 +38,7 @@ export async function getBoardTree(boardId: string) {
 
 export async function createRootTask(
   ownerId: string,
-  data: { title: string; description?: string; credits: number }
+  data: { title: string; description?: string; credits: number; tag?: BoardTag }
 ) {
   if (data.credits <= 0) throw new TaskError("Credits must be positive.");
   const id = crypto.randomUUID();
@@ -39,6 +48,7 @@ export async function createRootTask(
       title: data.title,
       description: data.description,
       credits: data.credits,
+      tag: data.tag,
       createdById: ownerId,
       boardId: id,
     },

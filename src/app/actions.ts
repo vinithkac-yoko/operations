@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth, signIn, signOut } from "@/lib/auth";
 import * as tasks from "@/lib/tasks";
+import { BoardTag } from "@prisma/client";
 
 async function requireSession() {
   const session = await auth();
@@ -25,10 +26,12 @@ export async function createBoardAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const credits = Number(formData.get("credits"));
+  const tagRaw = String(formData.get("tag") ?? "");
   if (!title) throw new Error("Title is required.");
   if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
+  const tag = tagRaw && tagRaw in BoardTag ? (tagRaw as BoardTag) : undefined;
 
-  await tasks.createRootTask(session.user.id, { title, description, credits });
+  await tasks.createRootTask(session.user.id, { title, description, credits, tag });
   revalidatePath("/");
 }
 

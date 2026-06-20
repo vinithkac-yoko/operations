@@ -14,6 +14,17 @@ enum TaskStatus {
   DONE
 }
 
+enum BoardTag {
+  BUSINESS_DEVELOPMENT
+  SALES
+  PRODUCT_DEVELOPMENT
+  ADMINISTRATION
+  CUSTOMER_SUCCESS
+  MARKETING
+  FINANCE
+  RESEARCH
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -36,6 +47,7 @@ model Task {
   description String?
   credits     Int
   status      TaskStatus @default(TODO)
+  tag         BoardTag?
 
   // boardId points at the root task of the lineage (a root task's boardId == its own id)
   boardId     String
