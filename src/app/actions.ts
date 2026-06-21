@@ -82,3 +82,15 @@ export async function deleteBoardAction(boardId: string) {
   revalidatePath("/");
   revalidatePath("/leaderboard");
 }
+
+export async function updateUserAccessAction(userId: string, formData: FormData) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can manage access.");
+
+  const tags = formData
+    .getAll("tags")
+    .filter((t): t is BoardTag => typeof t === "string" && t in BoardTag);
+  await tasks.setUserAllowedTags(userId, tags);
+  revalidatePath("/access");
+  revalidatePath("/");
+}

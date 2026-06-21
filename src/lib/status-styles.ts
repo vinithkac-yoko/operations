@@ -6,18 +6,15 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const STATUS_BADGE: Record<string, string> = {
-  TODO: "bg-zinc-800 text-zinc-300 border border-zinc-700",
-  IN_PROGRESS:
-    "bg-blue-500/15 text-blue-400 border border-blue-500/40 shadow-[0_0_12px_-2px_rgba(59,130,246,0.6)]",
-  IN_REVIEW:
-    "bg-amber-500/15 text-amber-400 border border-amber-500/40 shadow-[0_0_12px_-2px_rgba(245,158,11,0.6)]",
-  DONE:
-    "bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 shadow-[0_0_12px_-2px_rgba(52,211,153,0.6)]",
+  TODO: "bg-stone-700/50 text-stone-300 border border-stone-600/60",
+  IN_PROGRESS: "bg-sky-500/10 text-sky-300 border border-sky-500/30",
+  IN_REVIEW: "bg-amber-500/10 text-amber-300 border border-amber-500/30",
+  DONE: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30",
 };
 
 export const STATUS_BORDER: Record<string, string> = {
-  TODO: "border-zinc-800",
-  IN_PROGRESS: "border-blue-500/40",
-  IN_REVIEW: "border-amber-500/40",
-  DONE: "border-emerald-500/40",
+  TODO: "border-stone-700/60",
+  IN_PROGRESS: "border-sky-500/30",
+  IN_REVIEW: "border-amber-500/30",
+  DONE: "border-emerald-500/30",
 };

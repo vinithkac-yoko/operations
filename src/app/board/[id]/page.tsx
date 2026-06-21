@@ -11,16 +11,20 @@ export default async function BoardPage({
   const { id } = await params;
   const session = await auth();
   if (!session?.user) {
-    return <div className="text-center text-zinc-500 mt-24">Sign in to view this board.</div>;
+    return <div className="text-center text-stone-500 mt-24">Sign in to view this board.</div>;
   }
 
-  const tasks = await getBoardTree(id);
+  const tasks = await getBoardTree(id, {
+    isOwner: session.user.isOwner,
+    allowedTags: session.user.allowedTags,
+  });
+  if (!tasks) notFound();
   const root = tasks.find((t) => t.parentId === null);
   if (!root) notFound();
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-zinc-100">{root.title}</h1>
+      <h1 className="text-xl font-semibold text-stone-100">{root.title}</h1>
       <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} />
     </div>
   );

@@ -5,6 +5,13 @@ export class TaskError extends Error {}
 
 export type BoardSort = "newest" | "oldest" | "tag";
 
+export type Viewer = { isOwner: boolean; allowedTags: BoardTag[] };
+
+function tagVisibilityFilter(viewer: Viewer) {
+  if (viewer.isOwner) return {};
+  return { OR: [{ tag: null }, { tag: { in: viewer.allowedTags } }] };
+}
+
 function netCredits<T extends { credits: number; children: { credits: number }[] }>(
   task: T
 ) {
@@ -12,7 +19,7 @@ function netCredits<T extends { credits: number; children: { credits: number }[]
   return task.credits - claimed;
 }
 
-export async function listBoards(sort: BoardSort = "newest") {
+export async function listBoards(sort: BoardSort = "newest", viewer: Viewer) {
   const orderBy =
     sort === "oldest"
       ? { createdAt: "asc" as const }
@@ -21,19 +28,38 @@ export async function listBoards(sort: BoardSort = "newest") {
         : { createdAt: "desc" as const };
 
   return prisma.task.findMany({
-    where: { parentId: null },
+    where: { parentId: null, ...tagVisibilityFilter(viewer) },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
     orderBy,
   });
 }
 
-export async function getBoardTree(boardId: string) {
-  const tasks = await prisma.task.findMany({
+export async function getBoardTree(boardId: string, viewer: Viewer) {
+  const root = await prisma.task.findUnique({ where: { id: boardId } });
+  if (!root || root.parentId !== null) return null;
+  if (!viewer.isOwner && root.tag && !viewer.allowedTags.includes(root.tag)) {
+    return null;
+  }
+
+  return prisma.task.findMany({
     where: { boardId },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
     orderBy: { createdAt: "asc" },
   });
-  return tasks;
+}
+
+export async function listUsers() {
+  return prisma.user.findMany({
+    orderBy: { email: "asc" },
+    select: { id: true, email: true, name: true, isOwner: true, allowedTags: true },
+  });
+}
+
+export async function setUserAllowedTags(userId: string, tags: BoardTag[]) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { allowedTags: tags },
+  });
 }
 
 export async function createRootTask(

@@ -28,7 +28,7 @@ export function DeleteBoardButton({
         });
       }}
       disabled={pending}
-      className="text-xs rounded-md border border-red-500/40 bg-red-500/10 text-red-400 px-2.5 py-1 hover:bg-red-500/20 transition-colors disabled:opacity-40"
+      className="text-xs rounded-md border border-red-500/25 bg-red-500/10 text-red-300 px-2.5 py-1 hover:bg-red-500/20 transition-colors disabled:opacity-40"
     >
       {pending ? "Deleting…" : "Delete"}
     </button>

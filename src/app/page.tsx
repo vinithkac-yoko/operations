@@ -18,34 +18,38 @@ export default async function HomePage({
   searchParams: Promise<{ sort?: string }>;
 }) {
   const session = await auth();
-  const { sort } = await searchParams;
-  const activeSort: BoardSort = sort === "oldest" || sort === "tag" ? sort : "newest";
-  const boards = await listBoards(activeSort);
 
   if (!session?.user) {
     return (
-      <div className="text-center text-zinc-500 mt-24">
+      <div className="text-center text-stone-500 mt-24">
         Sign in to view the boards.
       </div>
     );
   }
 
+  const { sort } = await searchParams;
+  const activeSort: BoardSort = sort === "oldest" || sort === "tag" ? sort : "newest";
+  const boards = await listBoards(activeSort, {
+    isOwner: session.user.isOwner,
+    allowedTags: session.user.allowedTags,
+  });
+
   return (
     <div className="space-y-10">
       {session.user.isOwner && (
-        <section className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <h2 className="font-semibold mb-3 text-zinc-100">New main task (board)</h2>
+        <section className="bg-[#262420] border border-stone-800 rounded-lg p-5">
+          <h2 className="font-semibold mb-3 text-stone-100">New main task (board)</h2>
           <form action={createBoardAction} className="grid gap-3 max-w-md">
             <input
               name="title"
               placeholder="Title"
               required
-              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
             />
             <textarea
               name="description"
               placeholder="Description (optional)"
-              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
             />
             <input
               name="credits"
@@ -53,12 +57,12 @@ export default async function HomePage({
               min={1}
               placeholder="Total credits"
               required
-              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
             />
             <select
               name="tag"
               defaultValue=""
-              className="bg-zinc-950 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500"
+              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 focus:outline-none focus:border-stone-400"
             >
               <option value="">No tag</option>
               {TAG_OPTIONS.map((tag) => (
@@ -67,7 +71,7 @@ export default async function HomePage({
                 </option>
               ))}
             </select>
-            <button className="bg-amber-500 text-zinc-950 font-semibold rounded-md px-4 py-2 text-sm w-fit hover:bg-amber-400 transition-colors shadow-[0_0_20px_-4px_rgba(245,158,11,0.8)]">
+            <button className="bg-stone-100 text-stone-900 font-semibold rounded-md px-4 py-2 text-sm w-fit hover:bg-white transition-colors">
               Create board
             </button>
           </form>
@@ -76,8 +80,8 @@ export default async function HomePage({
 
       <section>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-zinc-100">Boards</h2>
-          <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <h2 className="font-semibold text-stone-100">Boards</h2>
+          <div className="flex items-center gap-2 text-sm text-stone-400">
             <span>Sort by</span>
             <div className="flex gap-1">
               {SORT_OPTIONS.map((opt) => (
@@ -86,8 +90,8 @@ export default async function HomePage({
                   href={opt.value === "newest" ? "/" : `/?sort=${opt.value}`}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ${
                     activeSort === opt.value
-                      ? "bg-amber-500 text-zinc-950 border-amber-500"
-                      : "bg-zinc-900 text-zinc-300 border-zinc-700 hover:border-zinc-500"
+                      ? "bg-stone-100 text-stone-900 border-stone-100"
+                      : "bg-[#262420] text-stone-300 border-stone-700 hover:border-stone-500"
                   }`}
                 >
                   {opt.label}
@@ -98,12 +102,12 @@ export default async function HomePage({
         </div>
         <div className="grid gap-3">
           {boards.length === 0 && (
-            <p className="text-zinc-500 text-sm">No boards yet.</p>
+            <p className="text-stone-500 text-sm">No boards yet.</p>
           )}
           {boards.map((board) => (
             <div
               key={board.id}
-              className="relative block bg-zinc-900 border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors"
+              className="relative block bg-[#262420] border border-stone-800 rounded-lg p-4 hover:bg-[#2b2925] transition-colors"
             >
               {session.user.isOwner && (
                 <div className="absolute top-3 right-3">
@@ -112,7 +116,7 @@ export default async function HomePage({
               )}
               <Link href={`/board/${board.id}`} className="block pr-16">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-zinc-100">{board.title}</span>
+                  <span className="font-medium text-stone-100">{board.title}</span>
                   <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${STATUS_BADGE[board.status]}`}>
                     {STATUS_LABEL[board.status]}
                   </span>
@@ -124,13 +128,13 @@ export default async function HomePage({
                     {TAG_LABEL[board.tag]}
                   </span>
                 )}
-                <p className="text-sm text-zinc-400 mt-1">
-                  <span className="text-amber-400 font-semibold">{board.credits} credits</span> ·
+                <p className="text-sm text-stone-400 mt-1">
+                  <span className="text-amber-300 font-semibold">{board.credits} credits</span> ·
                   created by {board.createdBy.name ?? board.createdBy.email}
                   {board.assignedTo &&
                     ` · assigned to ${board.assignedTo.name ?? board.assignedTo.email}`}
                 </p>
-                <p className="text-xs text-zinc-500 mt-1">
+                <p className="text-xs text-stone-500 mt-1">
                   {netCredits(board)} credit(s) unclaimed at this level
                 </p>
               </Link>
