@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { listBoards, netCredits, type BoardSort } from "@/lib/tasks";
-import { createBoardAction, deleteBoardAction } from "@/app/actions";
+import { listBoards, listPendingBoards, netCredits, type BoardSort } from "@/lib/tasks";
+import {
+  approveBoardAction,
+  createBoardAction,
+  deleteBoardAction,
+  rejectBoardAction,
+} from "@/app/actions";
 import { STATUS_BADGE, STATUS_LABEL } from "@/lib/status-styles";
 import { TAG_BADGE, TAG_LABEL, TAG_OPTIONS } from "@/lib/tag-styles";
 import { DeleteBoardButton } from "@/app/delete-board-button";
@@ -33,48 +38,97 @@ export default async function HomePage({
     isOwner: session.user.isOwner,
     allowedTags: session.user.allowedTags,
   });
+  const pendingBoards = session.user.isOwner ? await listPendingBoards() : [];
+  const tagOptions = session.user.isOwner ? TAG_OPTIONS : session.user.allowedTags;
 
   return (
     <div className="space-y-10">
-      {session.user.isOwner && (
-        <section className="bg-[#262420] border border-stone-800 rounded-lg p-5">
-          <h2 className="font-semibold mb-3 text-stone-100">New main task (board)</h2>
-          <form action={createBoardAction} className="grid gap-3 max-w-md">
-            <input
-              name="title"
-              placeholder="Title"
-              required
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
-            />
-            <textarea
-              name="description"
-              placeholder="Description (optional)"
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
-            />
-            <input
-              name="credits"
-              type="number"
-              min={1}
-              placeholder="Total credits"
-              required
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
-            />
-            <select
-              name="tag"
-              defaultValue=""
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 focus:outline-none focus:border-stone-400"
-            >
-              <option value="">No tag</option>
-              {TAG_OPTIONS.map((tag) => (
-                <option key={tag} value={tag}>
-                  {TAG_LABEL[tag]}
-                </option>
-              ))}
-            </select>
-            <button className="bg-stone-100 text-stone-900 font-semibold rounded-md px-4 py-2 text-sm w-fit hover:bg-white transition-colors">
-              Create board
-            </button>
-          </form>
+      <section className="bg-[#262420] border border-stone-800 rounded-lg p-5">
+        <h2 className="font-semibold mb-1 text-stone-100">
+          {session.user.isOwner ? "New main task (board)" : "Propose a new board"}
+        </h2>
+        {!session.user.isOwner && (
+          <p className="text-sm text-stone-400 mb-3">
+            Your proposal needs owner approval before it appears on the dashboard.
+          </p>
+        )}
+        <form action={createBoardAction} className="grid gap-3 max-w-md mt-3">
+          <input
+            name="title"
+            placeholder="Title"
+            required
+            className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+          />
+          <textarea
+            name="description"
+            placeholder="Description (optional)"
+            className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+          />
+          <input
+            name="credits"
+            type="number"
+            min={1}
+            placeholder="Total credits"
+            required
+            className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+          />
+          <select
+            name="tag"
+            defaultValue=""
+            className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 focus:outline-none focus:border-stone-400"
+          >
+            <option value="">No tag</option>
+            {tagOptions.map((tag) => (
+              <option key={tag} value={tag}>
+                {TAG_LABEL[tag]}
+              </option>
+            ))}
+          </select>
+          <button className="bg-stone-100 text-stone-900 font-semibold rounded-md px-4 py-2 text-sm w-fit hover:bg-white transition-colors">
+            {session.user.isOwner ? "Create board" : "Submit proposal"}
+          </button>
+        </form>
+      </section>
+
+      {session.user.isOwner && pendingBoards.length > 0 && (
+        <section>
+          <h2 className="font-semibold text-stone-100 mb-3">Pending proposals</h2>
+          <div className="grid gap-3">
+            {pendingBoards.map((board) => (
+              <div
+                key={board.id}
+                className="bg-[#262420] border border-amber-500/25 rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-stone-100">{board.title}</span>
+                  {board.tag && (
+                    <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${TAG_BADGE[board.tag]}`}>
+                      {TAG_LABEL[board.tag]}
+                    </span>
+                  )}
+                </div>
+                {board.description && (
+                  <p className="text-sm text-stone-400 mt-1">{board.description}</p>
+                )}
+                <p className="text-sm text-stone-400 mt-1">
+                  <span className="text-amber-300 font-semibold">{board.credits} credits</span> ·
+                  proposed by {board.createdBy.name ?? board.createdBy.email}
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <form action={approveBoardAction.bind(null, board.id)}>
+                    <button className="text-sm bg-emerald-500/90 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-emerald-400 transition-colors">
+                      Approve
+                    </button>
+                  </form>
+                  <form action={rejectBoardAction.bind(null, board.id)}>
+                    <button className="text-sm bg-red-500/10 text-red-300 border border-red-500/25 font-medium rounded-md px-3 py-1.5 hover:bg-red-500/20 transition-colors">
+                      Decline
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

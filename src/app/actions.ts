@@ -21,7 +21,6 @@ export async function doSignOut() {
 
 export async function createBoardAction(formData: FormData) {
   const session = await requireSession();
-  if (!session.user.isOwner) throw new Error("Only the owner can create a board/main task.");
 
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -31,7 +30,25 @@ export async function createBoardAction(formData: FormData) {
   if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
   const tag = tagRaw && tagRaw in BoardTag ? (tagRaw as BoardTag) : undefined;
 
-  await tasks.createRootTask(session.user.id, { title, description, credits, tag });
+  await tasks.createRootTask(
+    session.user.id,
+    { title, description, credits, tag },
+    session.user.isOwner
+  );
+  revalidatePath("/");
+}
+
+export async function approveBoardAction(boardId: string) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can approve board proposals.");
+  await tasks.approveBoard(boardId);
+  revalidatePath("/");
+}
+
+export async function rejectBoardAction(boardId: string) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can reject board proposals.");
+  await tasks.rejectBoard(boardId);
   revalidatePath("/");
 }
 

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { BoardTag, TaskStatus } from "@prisma/client";
+import { BoardApprovalStatus, BoardTag, TaskStatus } from "@prisma/client";
 
 export class TaskError extends Error {}
 
@@ -28,15 +28,37 @@ export async function listBoards(sort: BoardSort = "newest", viewer: Viewer) {
         : { createdAt: "desc" as const };
 
   return prisma.task.findMany({
-    where: { parentId: null, ...tagVisibilityFilter(viewer) },
+    where: {
+      parentId: null,
+      approvalStatus: BoardApprovalStatus.APPROVED,
+      ...tagVisibilityFilter(viewer),
+    },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
     orderBy,
   });
 }
 
-export async function getBoardTree(boardId: string, viewer: Viewer) {
+export async function listPendingBoards() {
+  return prisma.task.findMany({
+    where: { parentId: null, approvalStatus: BoardApprovalStatus.PENDING },
+    include: { createdBy: true },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getBoardTree(
+  boardId: string,
+  viewer: Viewer & { userId: string }
+) {
   const root = await prisma.task.findUnique({ where: { id: boardId } });
   if (!root || root.parentId !== null) return null;
+  if (
+    root.approvalStatus === BoardApprovalStatus.PENDING &&
+    !viewer.isOwner &&
+    root.createdById !== viewer.userId
+  ) {
+    return null;
+  }
   if (!viewer.isOwner && root.tag && !viewer.allowedTags.includes(root.tag)) {
     return null;
   }
@@ -63,8 +85,9 @@ export async function setUserAllowedTags(userId: string, tags: BoardTag[]) {
 }
 
 export async function createRootTask(
-  ownerId: string,
-  data: { title: string; description?: string; credits: number; tag?: BoardTag }
+  creatorId: string,
+  data: { title: string; description?: string; credits: number; tag?: BoardTag },
+  isOwner: boolean
 ) {
   if (data.credits <= 0) throw new TaskError("Credits must be positive.");
   const id = crypto.randomUUID();
@@ -75,10 +98,27 @@ export async function createRootTask(
       description: data.description,
       credits: data.credits,
       tag: data.tag,
-      createdById: ownerId,
+      createdById: creatorId,
       boardId: id,
+      approvalStatus: isOwner ? BoardApprovalStatus.APPROVED : BoardApprovalStatus.PENDING,
     },
   });
+}
+
+export async function approveBoard(boardId: string) {
+  const result = await prisma.task.updateMany({
+    where: { id: boardId, parentId: null, approvalStatus: BoardApprovalStatus.PENDING },
+    data: { approvalStatus: BoardApprovalStatus.APPROVED },
+  });
+  if (result.count === 0) throw new TaskError("Board proposal not found or already decided.");
+}
+
+export async function rejectBoard(boardId: string) {
+  const root = await prisma.task.findUnique({ where: { id: boardId } });
+  if (!root || root.parentId !== null || root.approvalStatus !== BoardApprovalStatus.PENDING) {
+    throw new TaskError("Board proposal not found or already decided.");
+  }
+  await deleteBoard(boardId);
 }
 
 export async function createSubtask(

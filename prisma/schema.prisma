@@ -14,6 +14,11 @@ enum TaskStatus {
   DONE
 }
 
+enum BoardApprovalStatus {
+  PENDING
+  APPROVED
+}
+
 enum BoardTag {
   BUSINESS_DEVELOPMENT
   SALES
@@ -49,6 +54,7 @@ model Task {
   credits     Int
   status      TaskStatus @default(TODO)
   tag         BoardTag?
+  approvalStatus BoardApprovalStatus @default(APPROVED)
 
   // boardId points at the root task of the lineage (a root task's boardId == its own id)
   boardId     String
