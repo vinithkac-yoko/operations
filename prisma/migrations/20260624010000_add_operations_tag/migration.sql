@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "BoardTag" ADD VALUE 'OPERATIONS';

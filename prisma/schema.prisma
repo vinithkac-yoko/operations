@@ -28,6 +28,7 @@ enum BoardTag {
   MARKETING
   FINANCE
   RESEARCH
+  OPERATIONS
 }
 
 model User {
