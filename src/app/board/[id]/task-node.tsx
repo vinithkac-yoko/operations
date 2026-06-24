@@ -62,7 +62,9 @@ export function TaskNode({
 
         <div className="flex flex-wrap gap-2 mt-3">
           {task.status === "TODO" && !task.assignedToId && (
-            <form action={assignToSelfAction.bind(null, task.boardId, task.id)}>
+            <form action={assignToSelfAction}>
+              <input type="hidden" name="boardId" value={task.boardId} />
+              <input type="hidden" name="taskId" value={task.id} />
               <button className="text-sm bg-stone-100 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-white transition-colors">
                 Assign to me
               </button>
@@ -70,7 +72,9 @@ export function TaskNode({
           )}
 
           {task.status === "IN_PROGRESS" && isAssignee && (
-            <form action={submitForReviewAction.bind(null, task.boardId, task.id)}>
+            <form action={submitForReviewAction}>
+              <input type="hidden" name="boardId" value={task.boardId} />
+              <input type="hidden" name="taskId" value={task.id} />
               <button
                 disabled={!allChildrenDone}
                 title={!allChildrenDone ? "All subtasks must be Done first" : undefined}
@@ -83,12 +87,18 @@ export function TaskNode({
 
           {task.status === "IN_REVIEW" && isCreator && (
             <>
-              <form action={reviewTaskAction.bind(null, task.boardId, task.id, "approve")}>
+              <form action={reviewTaskAction}>
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <input type="hidden" name="decision" value="approve" />
                 <button className="text-sm bg-emerald-500/90 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-emerald-400 transition-colors">
                   Approve & mark Done
                 </button>
               </form>
-              <form action={reviewTaskAction.bind(null, task.boardId, task.id, "reject")}>
+              <form action={reviewTaskAction}>
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <input type="hidden" name="decision" value="reject" />
                 <button className="text-sm bg-red-500/10 text-red-300 border border-red-500/25 font-medium rounded-md px-3 py-1.5 hover:bg-red-500/20 transition-colors">
                   Reject → back to Todo
                 </button>

@@ -39,17 +39,17 @@ export async function createBoardAction(formData: FormData) {
   revalidatePath("/");
 }
 
-export async function approveBoardAction(boardId: string) {
+export async function approveBoardAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can approve board proposals.");
-  await tasks.approveBoard(boardId);
+  await tasks.approveBoard(String(formData.get("boardId") ?? ""));
   revalidatePath("/");
 }
 
-export async function rejectBoardAction(boardId: string) {
+export async function rejectBoardAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can reject board proposals.");
-  await tasks.rejectBoard(boardId);
+  await tasks.rejectBoard(String(formData.get("boardId") ?? ""));
   revalidatePath("/");
 }
 
@@ -71,24 +71,27 @@ export async function createSubtaskAction(formData: FormData) {
   revalidatePath(`/board/${created.boardId}`);
 }
 
-export async function assignToSelfAction(boardId: string, taskId: string) {
+export async function assignToSelfAction(formData: FormData) {
   const session = await requireSession();
+  const boardId = String(formData.get("boardId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
   await tasks.assignToSelf(session.user.id, taskId);
   revalidatePath(`/board/${boardId}`);
 }
 
-export async function submitForReviewAction(boardId: string, taskId: string) {
+export async function submitForReviewAction(formData: FormData) {
   const session = await requireSession();
+  const boardId = String(formData.get("boardId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
   await tasks.submitForReview(session.user.id, taskId);
   revalidatePath(`/board/${boardId}`);
 }
 
-export async function reviewTaskAction(
-  boardId: string,
-  taskId: string,
-  decision: "approve" | "reject"
-) {
+export async function reviewTaskAction(formData: FormData) {
   const session = await requireSession();
+  const boardId = String(formData.get("boardId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const decision = String(formData.get("decision") ?? "") as "approve" | "reject";
   await tasks.reviewTask(session.user.id, taskId, decision);
   revalidatePath(`/board/${boardId}`);
 }
@@ -101,9 +104,12 @@ export async function deleteBoardAction(boardId: string) {
   revalidatePath("/leaderboard");
 }
 
-export async function updateUserAccessAction(userId: string, formData: FormData) {
+export async function updateUserAccessAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can manage access.");
+
+  const userId = String(formData.get("userId") ?? "");
+  if (!userId) throw new Error("Missing userId.");
 
   const tags = formData
     .getAll("tags")

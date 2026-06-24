@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { listUsers } from "@/lib/tasks";
 import { updateUserAccessAction } from "@/app/actions";
+
 import { TAG_LABEL, TAG_OPTIONS } from "@/lib/tag-styles";
 
 export default async function AccessPage() {
@@ -25,9 +26,10 @@ export default async function AccessPage() {
         {users.map((u) => (
           <form
             key={u.id}
-            action={updateUserAccessAction.bind(null, u.id)}
+            action={updateUserAccessAction}
             className="bg-[#262420] border border-stone-800 rounded-lg p-4"
           >
+            <input type="hidden" name="userId" value={u.id} />
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
                 <span className="font-medium text-stone-100">{u.name ?? u.email}</span>

@@ -115,12 +115,14 @@ export default async function HomePage({
                   proposed by {board.createdBy.name ?? board.createdBy.email}
                 </p>
                 <div className="flex gap-2 mt-3">
-                  <form action={approveBoardAction.bind(null, board.id)}>
+                  <form action={approveBoardAction}>
+                    <input type="hidden" name="boardId" value={board.id} />
                     <button className="text-sm bg-emerald-500/90 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-emerald-400 transition-colors">
                       Approve
                     </button>
                   </form>
-                  <form action={rejectBoardAction.bind(null, board.id)}>
+                  <form action={rejectBoardAction}>
+                    <input type="hidden" name="boardId" value={board.id} />
                     <button className="text-sm bg-red-500/10 text-red-300 border border-red-500/25 font-medium rounded-md px-3 py-1.5 hover:bg-red-500/20 transition-colors">
                       Decline
                     </button>
