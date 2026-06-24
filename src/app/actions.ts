@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth, signIn, signOut } from "@/lib/auth";
 import * as tasks from "@/lib/tasks";
@@ -108,6 +109,5 @@ export async function updateUserAccessAction(userId: string, formData: FormData)
     .getAll("tags")
     .filter((t): t is BoardTag => typeof t === "string" && t in BoardTag);
   await tasks.setUserAllowedTags(userId, tags);
-  revalidatePath("/access");
-  revalidatePath("/");
+  redirect("/access");
 }
