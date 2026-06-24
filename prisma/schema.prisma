@@ -40,8 +40,9 @@ model User {
   allowedTags   BoardTag[] @default([])
   createdAt     DateTime   @default(now())
 
-  createdTasks  Task[]    @relation("CreatedTasks")
-  assignedTasks Task[]    @relation("AssignedTasks")
+  createdTasks  Task[]        @relation("CreatedTasks")
+  assignedTasks Task[]        @relation("AssignedTasks")
+  comments      TaskComment[] @relation("AuthoredComments")
 
   accounts      Account[]
   sessions      Session[]
@@ -76,9 +77,23 @@ model Task {
   submittedAt DateTime?
   completedAt DateTime?
 
+  comments    TaskComment[]
+
   @@index([boardId])
   @@index([parentId])
   @@index([status])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("AuthoredComments", fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
 }
 
 model Account {

@@ -6,6 +6,15 @@ import {
 } from "@/app/actions";
 import { netCredits } from "@/lib/tasks";
 import { STATUS_BADGE, STATUS_BORDER, STATUS_LABEL } from "@/lib/status-styles";
+import { TaskChat } from "./task-chat";
+
+type Comment = {
+  id: string;
+  content: string;
+  authorId: string;
+  author: { id: string; name: string | null; email: string };
+  createdAt: Date;
+};
 
 type TaskWithRelations = {
   id: string;
@@ -15,12 +24,30 @@ type TaskWithRelations = {
   description: string | null;
   credits: number;
   status: string;
+  approvalStatus: string;
   createdById: string;
   createdBy: { name: string | null; email: string };
   assignedToId: string | null;
   assignedTo: { name: string | null; email: string } | null;
   children: { credits: number }[];
+  createdAt: Date;
+  assignedAt: Date | null;
+  submittedAt: Date | null;
+  completedAt: Date | null;
+  comments: Comment[];
 };
+
+function formatDuration(ms: number) {
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours < 24) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const hrs = hours % 24;
+  return hrs > 0 ? `${days}d ${hrs}h` : `${days}d`;
+}
 
 export function TaskNode({
   task,
@@ -39,6 +66,19 @@ export function TaskNode({
   const remaining = netCredits(task);
   const allChildrenDone = children.every((c) => c.status === "DONE");
 
+  const pickupDelay =
+    task.assignedAt
+      ? formatDuration(task.assignedAt.getTime() - task.createdAt.getTime())
+      : null;
+  const inProgressDuration =
+    task.assignedAt && task.submittedAt
+      ? formatDuration(task.submittedAt.getTime() - task.assignedAt.getTime())
+      : null;
+  const reviewDuration =
+    task.submittedAt && task.completedAt
+      ? formatDuration(task.completedAt.getTime() - task.submittedAt.getTime())
+      : null;
+
   return (
     <div className={depth > 0 ? "ml-6 mt-3 border-l border-stone-800 pl-4" : "mt-3"}>
       <div
@@ -46,19 +86,29 @@ export function TaskNode({
       >
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium text-stone-100">{task.title}</span>
-          <span className={`text-xs rounded-full px-2.5 py-1 font-medium ${STATUS_BADGE[task.status]}`}>
+          <span className={`text-xs rounded-full px-2.5 py-1 font-medium flex-none ${STATUS_BADGE[task.status]}`}>
             {STATUS_LABEL[task.status]}
           </span>
         </div>
+
         {task.description && (
           <p className="text-sm text-stone-400 mt-1 whitespace-pre-wrap">{task.description}</p>
         )}
+
         <p className="text-xs text-stone-500 mt-2">
           <span className="text-amber-300 font-semibold">{task.credits} credits</span>{" "}
           <span className="text-stone-600">({remaining} unclaimed)</span> · created by{" "}
           {task.createdBy.name ?? task.createdBy.email}
           {task.assignedTo && ` · assigned to ${task.assignedTo.name ?? task.assignedTo.email}`}
         </p>
+
+        {(pickupDelay || inProgressDuration || reviewDuration) && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-stone-600">
+            {pickupDelay && <span>Picked up after {pickupDelay}</span>}
+            {inProgressDuration && <span>In progress {inProgressDuration}</span>}
+            {reviewDuration && <span>Reviewed in {reviewDuration}</span>}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mt-3">
           {task.status === "TODO" && !task.assignedToId && (
@@ -141,6 +191,8 @@ export function TaskNode({
             </button>
           </form>
         )}
+
+        <TaskChat taskId={task.id} boardId={task.boardId} comments={task.comments} />
       </div>
 
       {children.map((child) => (

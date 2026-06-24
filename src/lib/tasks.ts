@@ -65,7 +65,15 @@ export async function getBoardTree(
 
   return prisma.task.findMany({
     where: { boardId },
-    include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
+    include: {
+      createdBy: true,
+      assignedTo: true,
+      children: { select: { credits: true } },
+      comments: {
+        include: { author: { select: { id: true, name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
     orderBy: { createdAt: "asc" },
   });
 }
@@ -267,6 +275,14 @@ export async function deleteBoard(boardId: string) {
         remaining.delete(t.id);
       }
     }
+  });
+}
+
+export async function addComment(authorId: string, taskId: string, content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) throw new TaskError("Comment cannot be empty.");
+  return prisma.taskComment.create({
+    data: { content: trimmed, taskId, authorId },
   });
 }
 

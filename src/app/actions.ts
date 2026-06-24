@@ -30,6 +30,7 @@ export async function createBoardAction(formData: FormData) {
   if (!title) throw new Error("Title is required.");
   if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
   const tag = tagRaw && tagRaw in BoardTag ? (tagRaw as BoardTag) : undefined;
+  if (!tag) throw new Error("Department tag is required.");
 
   await tasks.createRootTask(
     session.user.id,
@@ -102,6 +103,15 @@ export async function deleteBoardAction(boardId: string) {
   await tasks.deleteBoard(boardId);
   revalidatePath("/");
   revalidatePath("/leaderboard");
+}
+
+export async function addCommentAction(formData: FormData) {
+  const session = await requireSession();
+  const taskId = String(formData.get("taskId") ?? "");
+  const boardId = String(formData.get("boardId") ?? "");
+  const content = String(formData.get("content") ?? "");
+  await tasks.addComment(session.user.id, taskId, content);
+  revalidatePath(`/board/${boardId}`);
 }
 
 export async function updateUserAccessAction(formData: FormData) {

@@ -75,9 +75,10 @@ export default async function HomePage({
           <select
             name="tag"
             defaultValue=""
+            required
             className="bg-[#1f1e1d] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 focus:outline-none focus:border-stone-400"
           >
-            <option value="">No tag</option>
+            <option value="" disabled>Select a department</option>
             {tagOptions.map((tag) => (
               <option key={tag} value={tag}>
                 {TAG_LABEL[tag]}
