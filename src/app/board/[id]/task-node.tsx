@@ -51,7 +51,7 @@ export function TaskNode({
           </span>
         </div>
         {task.description && (
-          <p className="text-sm text-stone-400 mt-1">{task.description}</p>
+          <p className="text-sm text-stone-400 mt-1 whitespace-pre-wrap">{task.description}</p>
         )}
         <p className="text-xs text-stone-500 mt-2">
           <span className="text-amber-300 font-semibold">{task.credits} credits</span>{" "}

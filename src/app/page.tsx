@@ -108,7 +108,7 @@ export default async function HomePage({
                   )}
                 </div>
                 {board.description && (
-                  <p className="text-sm text-stone-400 mt-1">{board.description}</p>
+                  <p className="text-sm text-stone-400 mt-1 whitespace-pre-wrap">{board.description}</p>
                 )}
                 <p className="text-sm text-stone-400 mt-1">
                   <span className="text-amber-300 font-semibold">{board.credits} credits</span> ·
