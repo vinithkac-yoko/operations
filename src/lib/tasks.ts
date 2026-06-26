@@ -229,6 +229,110 @@ export async function reviewTask(
   });
 }
 
+export async function getPipelineStats() {
+  const [todo, inProgress, inReview, done] = await Promise.all([
+    prisma.task.count({ where: { status: TaskStatus.TODO, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.IN_PROGRESS, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.IN_REVIEW, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.DONE, approvalStatus: BoardApprovalStatus.APPROVED } }),
+  ]);
+  return { todo, inProgress, inReview, done };
+}
+
+export async function getMetrics() {
+  const now = new Date();
+
+  const tasks = await prisma.task.findMany({
+    where: { approvalStatus: BoardApprovalStatus.APPROVED },
+    include: {
+      assignedTo: { select: { id: true, name: true, email: true } },
+      children: { select: { credits: true } },
+    },
+  });
+
+  const pipeline = { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 };
+  let creditsDistributed = 0;
+  for (const t of tasks) {
+    pipeline[t.status as keyof typeof pipeline]++;
+    if (t.status === TaskStatus.DONE && t.assignedTo) creditsDistributed += netCredits(t);
+  }
+
+  const completed = tasks.filter(
+    (t): t is typeof t & { assignedAt: Date; submittedAt: Date; completedAt: Date } =>
+      t.status === TaskStatus.DONE && !!t.assignedAt && !!t.submittedAt && !!t.completedAt
+  );
+
+  const avgMs = (arr: number[]) =>
+    arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+
+  const avgWait = avgMs(completed.map(t => t.assignedAt.getTime() - t.createdAt.getTime()));
+  const avgActive = avgMs(completed.map(t => t.submittedAt.getTime() - t.assignedAt.getTime()));
+  const avgReview = avgMs(completed.map(t => t.completedAt.getTime() - t.submittedAt.getTime()));
+  const avgLead = avgMs(completed.map(t => t.completedAt.getTime() - t.createdAt.getTime()));
+  const flowEfficiency = avgLead > 0 ? Math.round((avgActive / avgLead) * 100) : 0;
+
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const weekStart = new Date(now.getTime() - weekMs);
+  const lastWeekStart = new Date(now.getTime() - 2 * weekMs);
+  const thisWeekCount = tasks.filter(t => t.completedAt && t.completedAt >= weekStart).length;
+  const lastWeekCount = tasks.filter(
+    t => t.completedAt && t.completedAt >= lastWeekStart && t.completedAt < weekStart
+  ).length;
+
+  const tagMap = new Map<string, { done: number; activeTimes: number[]; credits: number }>();
+  for (const t of tasks) {
+    const key = t.tag ?? "UNTAGGED";
+    if (!tagMap.has(key)) tagMap.set(key, { done: 0, activeTimes: [], credits: 0 });
+    const e = tagMap.get(key)!;
+    if (t.status === TaskStatus.DONE) {
+      e.done++;
+      if (t.assignedAt && t.submittedAt)
+        e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+      if (t.assignedTo) e.credits += netCredits(t);
+    }
+  }
+
+  const personMap = new Map<
+    string,
+    { name: string; email: string; done: number; activeTimes: number[]; reviewTimes: number[]; credits: number }
+  >();
+  for (const t of tasks) {
+    if (!t.assignedTo || t.status !== TaskStatus.DONE) continue;
+    const id = t.assignedTo.id;
+    if (!personMap.has(id))
+      personMap.set(id, {
+        name: t.assignedTo.name ?? t.assignedTo.email,
+        email: t.assignedTo.email,
+        done: 0, activeTimes: [], reviewTimes: [], credits: 0,
+      });
+    const e = personMap.get(id)!;
+    e.done++;
+    e.credits += netCredits(t);
+    if (t.assignedAt && t.submittedAt)
+      e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+    if (t.submittedAt && t.completedAt)
+      e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
+  }
+
+  return {
+    pipeline,
+    creditsDistributed,
+    completedCount: completed.length,
+    avgWait, avgActive, avgReview, avgLead, flowEfficiency,
+    thisWeekCount, lastWeekCount,
+    byTag: [...tagMap.entries()]
+      .map(([tag, d]) => ({ tag, done: d.done, avgActive: avgMs(d.activeTimes), credits: d.credits }))
+      .filter(r => r.done > 0)
+      .sort((a, b) => b.done - a.done),
+    byPerson: [...personMap.values()]
+      .map(p => ({
+        name: p.name, email: p.email, done: p.done,
+        avgActive: avgMs(p.activeTimes), avgReview: avgMs(p.reviewTimes), credits: p.credits,
+      }))
+      .sort((a, b) => b.credits - a.credits),
+  };
+}
+
 export async function getLeaderboard() {
   const doneTasks = await prisma.task.findMany({
     where: { status: TaskStatus.DONE },

@@ -66,6 +66,8 @@ export function TaskNode({
   const remaining = netCredits(task);
   const allChildrenDone = children.every((c) => c.status === "DONE");
 
+  const now = Date.now();
+
   const pickupDelay =
     task.assignedAt
       ? formatDuration(task.assignedAt.getTime() - task.createdAt.getTime())
@@ -77,6 +79,20 @@ export function TaskNode({
   const reviewDuration =
     task.submittedAt && task.completedAt
       ? formatDuration(task.completedAt.getTime() - task.submittedAt.getTime())
+      : null;
+
+  // Live age for currently active tasks
+  const activeAge =
+    task.status === "IN_PROGRESS" && task.assignedAt && !task.submittedAt
+      ? formatDuration(now - task.assignedAt.getTime())
+      : null;
+  const reviewAge =
+    task.status === "IN_REVIEW" && task.submittedAt && !task.completedAt
+      ? formatDuration(now - task.submittedAt.getTime())
+      : null;
+  const waitAge =
+    task.status === "TODO" && !task.assignedAt
+      ? formatDuration(now - task.createdAt.getTime())
       : null;
 
   return (
@@ -102,13 +118,28 @@ export function TaskNode({
           {task.assignedTo && ` · assigned to ${task.assignedTo.name ?? task.assignedTo.email}`}
         </p>
 
-        {(pickupDelay || inProgressDuration || reviewDuration) && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-[#5c4840]">
-            {pickupDelay && <span>Picked up after {pickupDelay}</span>}
-            {inProgressDuration && <span>In progress {inProgressDuration}</span>}
-            {reviewDuration && <span>Reviewed in {reviewDuration}</span>}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+          {/* Active counters for live tasks */}
+          {waitAge && (
+            <span className="text-[#9e8878]">
+              Waiting <span className="font-semibold text-[#c4857a]">{waitAge}</span> for pickup
+            </span>
+          )}
+          {activeAge && (
+            <span className="text-[#9e8878]">
+              In progress <span className="font-semibold text-[#c4857a]">{activeAge}</span>
+            </span>
+          )}
+          {reviewAge && (
+            <span className="text-[#9e8878]">
+              In review <span className="font-semibold text-amber-400">{reviewAge}</span>
+            </span>
+          )}
+          {/* Historical stats for completed tasks */}
+          {pickupDelay && <span className="text-[#5c4840]">Picked up after {pickupDelay}</span>}
+          {inProgressDuration && <span className="text-[#5c4840]">Worked {inProgressDuration}</span>}
+          {reviewDuration && <span className="text-[#5c4840]">Reviewed in {reviewDuration}</span>}
+        </div>
 
         <div className="flex flex-wrap gap-2 mt-3">
           {task.status === "TODO" && !task.assignedToId && (

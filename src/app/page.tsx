@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { listBoards, listPendingBoards, netCredits, type BoardSort } from "@/lib/tasks";
+import { listBoards, listPendingBoards, getPipelineStats, netCredits, type BoardSort } from "@/lib/tasks";
 import {
   approveBoardAction,
   createBoardAction,
@@ -40,9 +40,26 @@ export default async function HomePage({
   });
   const pendingBoards = session.user.isOwner ? await listPendingBoards() : [];
   const tagOptions = session.user.isOwner ? TAG_OPTIONS : session.user.allowedTags;
+  const stats = await getPipelineStats();
 
   return (
     <div className="space-y-10">
+      {/* Pipeline counter strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Open", value: stats.todo, sub: "Unassigned" },
+          { label: "In Progress", value: stats.inProgress, sub: "Being worked on", accent: true },
+          { label: "In Review", value: stats.inReview, sub: "Awaiting decision" },
+          { label: "Done", value: stats.done, sub: "Completed" },
+        ].map((s) => (
+          <div key={s.label} className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-4">
+            <p className="text-[11px] font-bold text-[#5c4840] uppercase tracking-widest mb-1">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.accent ? "text-[#c4857a]" : "text-[#f0e4dc]"}`}>{s.value}</p>
+            <p className="text-[11px] text-[#5c4840] mt-0.5">{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
       <section className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-6">
         <h2 className="font-bold mb-1 text-[#f0e4dc]">
           {session.user.isOwner ? "New main task (board)" : "Propose a new board"}

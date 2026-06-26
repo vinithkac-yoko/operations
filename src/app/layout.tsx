@@ -52,12 +52,20 @@ export default async function RootLayout({
               Leaderboard
             </Link>
             {session?.user?.isOwner && (
-              <Link
-                href="/access"
-                className="text-[#9e8878] hover:text-[#f0e4dc] transition-colors"
-              >
-                Access
-              </Link>
+              <>
+                <Link
+                  href="/metrics"
+                  className="text-[#9e8878] hover:text-[#f0e4dc] transition-colors"
+                >
+                  Metrics
+                </Link>
+                <Link
+                  href="/access"
+                  className="text-[#9e8878] hover:text-[#f0e4dc] transition-colors"
+                >
+                  Access
+                </Link>
+              </>
             )}
           </nav>
           <div className="flex items-center gap-3 text-sm">
