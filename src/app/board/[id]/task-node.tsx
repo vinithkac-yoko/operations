@@ -3,6 +3,7 @@ import {
   createSubtaskAction,
   reviewTaskAction,
   submitForReviewAction,
+  updateCreditsAction,
 } from "@/app/actions";
 import { netCredits } from "@/lib/tasks";
 import { STATUS_BADGE, STATUS_BORDER, STATUS_LABEL } from "@/lib/status-styles";
@@ -53,11 +54,13 @@ export function TaskNode({
   task,
   allTasks,
   currentUserId,
+  isOwner = false,
   depth = 0,
 }: {
   task: TaskWithRelations;
   allTasks: TaskWithRelations[];
   currentUserId: string;
+  isOwner?: boolean;
   depth?: number;
 }) {
   const children = allTasks.filter((t) => t.parentId === task.id);
@@ -117,6 +120,27 @@ export function TaskNode({
           {task.createdBy.name ?? task.createdBy.email}
           {task.assignedTo && ` · assigned to ${task.assignedTo.name ?? task.assignedTo.email}`}
         </p>
+
+        {isOwner && (
+          <form action={updateCreditsAction} className="flex items-center gap-2 mt-1.5">
+            <input type="hidden" name="taskId" value={task.id} />
+            <input type="hidden" name="boardId" value={task.boardId} />
+            <span className="text-[11px] text-[#5c4840]">Credits</span>
+            <input
+              name="credits"
+              type="number"
+              min={1}
+              defaultValue={task.credits}
+              className="w-16 bg-[#130c09] border border-[#3d2820] rounded-md px-1.5 py-0.5 text-xs text-[#f0e4dc] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+            />
+            <button
+              type="submit"
+              className="text-[11px] text-[#c4857a] hover:text-[#d4958a] font-semibold transition-colors"
+            >
+              Update
+            </button>
+          </form>
+        )}
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px]">
           {/* Active counters for live tasks */}
@@ -232,6 +256,7 @@ export function TaskNode({
           task={child}
           allTasks={allTasks}
           currentUserId={currentUserId}
+          isOwner={isOwner}
           depth={depth + 1}
         />
       ))}

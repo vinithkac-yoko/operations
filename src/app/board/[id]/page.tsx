@@ -35,7 +35,7 @@ export default async function BoardPage({
         </div>
       )}
       <h1 className="text-xl font-bold text-[#f0e4dc]">{root.title}</h1>
-      <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} />
+      <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} isOwner={session.user.isOwner} />
     </div>
   );
 }

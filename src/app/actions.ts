@@ -105,6 +105,16 @@ export async function deleteBoardAction(boardId: string) {
   revalidatePath("/leaderboard");
 }
 
+export async function updateCreditsAction(formData: FormData) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can edit credits.");
+  const taskId = String(formData.get("taskId") ?? "");
+  const boardId = String(formData.get("boardId") ?? "");
+  const credits = Number(formData.get("credits"));
+  await tasks.updateTaskCredits(taskId, credits);
+  revalidatePath(`/board/${boardId}`);
+}
+
 export async function addCommentAction(formData: FormData) {
   const session = await requireSession();
   const taskId = String(formData.get("taskId") ?? "");

@@ -382,6 +382,27 @@ export async function deleteBoard(boardId: string) {
   });
 }
 
+export async function updateTaskCredits(taskId: string, credits: number) {
+  if (!Number.isFinite(credits) || credits <= 0) throw new TaskError("Credits must be a positive number.");
+
+  return prisma.$transaction(async (tx) => {
+    const task = await tx.task.findUnique({
+      where: { id: taskId },
+      include: { children: { select: { credits: true } } },
+    });
+    if (!task) throw new TaskError("Task not found.");
+
+    const allocated = task.children.reduce((sum, c) => sum + c.credits, 0);
+    if (credits < allocated) {
+      throw new TaskError(
+        `Cannot set credits below ${allocated} — that amount is already allocated to subtasks.`
+      );
+    }
+
+    return tx.task.update({ where: { id: taskId }, data: { credits } });
+  });
+}
+
 export async function addComment(authorId: string, taskId: string, content: string) {
   const trimmed = content.trim();
   if (!trimmed) throw new TaskError("Comment cannot be empty.");
