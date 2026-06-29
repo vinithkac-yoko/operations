@@ -81,14 +81,16 @@ export default async function HomePage({
             placeholder="Description (optional)"
             className="bg-[#130c09] border border-[#3d2820] rounded-lg px-3 py-2.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
           />
-          <input
-            name="credits"
-            type="number"
-            min={1}
-            placeholder="Total credits"
-            required
-            className="bg-[#130c09] border border-[#3d2820] rounded-lg px-3 py-2.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
-          />
+          {session.user.isOwner && (
+            <input
+              name="credits"
+              type="number"
+              min={1}
+              placeholder="Total credits"
+              required
+              className="bg-[#130c09] border border-[#3d2820] rounded-lg px-3 py-2.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+            />
+          )}
           <select
             name="tag"
             defaultValue=""

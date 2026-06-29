@@ -25,12 +25,16 @@ export async function createBoardAction(formData: FormData) {
 
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
-  const credits = Number(formData.get("credits"));
   const tagRaw = String(formData.get("tag") ?? "");
   if (!title) throw new Error("Title is required.");
-  if (!Number.isFinite(credits) || credits <= 0) throw new Error("Credits must be a positive number.");
   const tag = tagRaw && tagRaw in BoardTag ? (tagRaw as BoardTag) : undefined;
   if (!tag) throw new Error("Department tag is required.");
+
+  // Only owners set credits at creation; proposals default to 1 (owner adjusts after approval)
+  const credits = session.user.isOwner ? Number(formData.get("credits")) : 1;
+  if (session.user.isOwner && (!Number.isFinite(credits) || credits <= 0)) {
+    throw new Error("Credits must be a positive number.");
+  }
 
   await tasks.createRootTask(
     session.user.id,
@@ -77,6 +81,17 @@ export async function assignToSelfAction(formData: FormData) {
   const boardId = String(formData.get("boardId") ?? "");
   const taskId = String(formData.get("taskId") ?? "");
   await tasks.assignToSelf(session.user.id, taskId);
+  revalidatePath(`/board/${boardId}`);
+}
+
+export async function assignTaskAction(formData: FormData) {
+  const session = await requireSession();
+  if (!session.user.isOwner) throw new Error("Only the owner can assign tasks to others.");
+  const boardId = String(formData.get("boardId") ?? "");
+  const taskId = String(formData.get("taskId") ?? "");
+  const targetUserId = String(formData.get("userId") ?? "");
+  if (!targetUserId) throw new Error("Select a person to assign.");
+  await tasks.assignTaskToUser(taskId, targetUserId);
   revalidatePath(`/board/${boardId}`);
 }
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { getBoardTree } from "@/lib/tasks";
+import { getBoardTree, listUsers } from "@/lib/tasks";
 import { TaskNode } from "./task-node";
 
 export default async function BoardPage({
@@ -18,11 +18,14 @@ export default async function BoardPage({
     );
   }
 
-  const tasks = await getBoardTree(id, {
-    isOwner: session.user.isOwner,
-    allowedTags: session.user.allowedTags,
-    userId: session.user.id,
-  });
+  const [tasks, users] = await Promise.all([
+    getBoardTree(id, {
+      isOwner: session.user.isOwner,
+      allowedTags: session.user.allowedTags,
+      userId: session.user.id,
+    }),
+    session.user.isOwner ? listUsers() : Promise.resolve([]),
+  ]);
   if (!tasks) notFound();
   const root = tasks.find((t) => t.parentId === null);
   if (!root) notFound();
@@ -35,7 +38,7 @@ export default async function BoardPage({
         </div>
       )}
       <h1 className="text-xl font-bold text-[#f0e4dc]">{root.title}</h1>
-      <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} isOwner={session.user.isOwner} />
+      <TaskNode task={root} allTasks={tasks} currentUserId={session.user.id} isOwner={session.user.isOwner} users={users} />
     </div>
   );
 }

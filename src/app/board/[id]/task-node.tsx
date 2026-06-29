@@ -1,4 +1,5 @@
 import {
+  assignTaskAction,
   assignToSelfAction,
   createSubtaskAction,
   reviewTaskAction,
@@ -50,17 +51,21 @@ function formatDuration(ms: number) {
   return hrs > 0 ? `${days}d ${hrs}h` : `${days}d`;
 }
 
+type UserOption = { id: string; name: string | null; email: string };
+
 export function TaskNode({
   task,
   allTasks,
   currentUserId,
   isOwner = false,
+  users = [],
   depth = 0,
 }: {
   task: TaskWithRelations;
   allTasks: TaskWithRelations[];
   currentUserId: string;
   isOwner?: boolean;
+  users?: UserOption[];
   depth?: number;
 }) {
   const children = allTasks.filter((t) => t.parentId === task.id);
@@ -167,13 +172,36 @@ export function TaskNode({
 
         <div className="flex flex-wrap gap-2 mt-3">
           {task.status === "TODO" && !task.assignedToId && (
-            <form action={assignToSelfAction}>
-              <input type="hidden" name="boardId" value={task.boardId} />
-              <input type="hidden" name="taskId" value={task.id} />
-              <button className="text-sm bg-[#c4857a] text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
-                Assign to me
-              </button>
-            </form>
+            isOwner ? (
+              <form action={assignTaskAction} className="flex items-center gap-2">
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <select
+                  name="userId"
+                  required
+                  defaultValue=""
+                  className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+                >
+                  <option value="" disabled>Assign to…</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name ?? u.email}
+                    </option>
+                  ))}
+                </select>
+                <button className="text-sm bg-[#c4857a] text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
+                  Assign
+                </button>
+              </form>
+            ) : (
+              <form action={assignToSelfAction}>
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <button className="text-sm bg-[#c4857a] text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
+                  Assign to me
+                </button>
+              </form>
+            )
           )}
 
           {task.status === "IN_PROGRESS" && isAssignee && (
@@ -257,6 +285,7 @@ export function TaskNode({
           allTasks={allTasks}
           currentUserId={currentUserId}
           isOwner={isOwner}
+          users={users}
           depth={depth + 1}
         />
       ))}

@@ -174,9 +174,15 @@ export async function assignToSelf(userId: string, taskId: string) {
     where: { id: taskId, status: TaskStatus.TODO, assignedToId: null },
     data: { assignedToId: userId, status: TaskStatus.IN_PROGRESS, assignedAt: new Date() },
   });
-  if (result.count === 0) {
-    throw new TaskError("Task is no longer available to assign.");
-  }
+  if (result.count === 0) throw new TaskError("Task is no longer available to assign.");
+}
+
+export async function assignTaskToUser(taskId: string, targetUserId: string) {
+  const result = await prisma.task.updateMany({
+    where: { id: taskId, status: TaskStatus.TODO, assignedToId: null },
+    data: { assignedToId: targetUserId, status: TaskStatus.IN_PROGRESS, assignedAt: new Date() },
+  });
+  if (result.count === 0) throw new TaskError("Task is no longer available to assign.");
 }
 
 export async function submitForReview(userId: string, taskId: string) {
