@@ -98,10 +98,10 @@ export default async function MetricsPage() {
             sub="Creation → done (end-to-end)"
           />
           <Stat
-            label="Flow Efficiency"
-            value={m.flowEfficiency > 0 ? `${m.flowEfficiency}%` : "—"}
-            sub="Active work % of total time"
-            accent={m.flowEfficiency >= 50}
+            label="Value Velocity"
+            value={m.valueVelocity > 0 ? `${m.valueVelocity} cr/day` : "—"}
+            sub="Credits delivered per calendar day"
+            accent={m.valueVelocity > 0}
           />
           <Stat
             label="Credits Distributed"
@@ -110,24 +110,16 @@ export default async function MetricsPage() {
           />
         </div>
 
-        {m.flowEfficiency > 0 && (
+        {m.valueVelocity > 0 && (
           <div className="mt-3 bg-[#1a1210] border border-[#3d2820] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-[#9e8878]">Flow efficiency</span>
-              <span className="text-xs font-bold text-[#c4857a]">{m.flowEfficiency}%</span>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-[#9e8878]">Value velocity</span>
+              <span className="text-xs font-bold text-[#c4857a]">{m.valueVelocity} cr/day</span>
             </div>
-            <div className="w-full bg-[#130c09] rounded-full h-2">
-              <div
-                className="bg-[#c4857a] h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(m.flowEfficiency, 100)}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-[#5c4840] mt-1.5">
-              {m.flowEfficiency >= 70
-                ? "Excellent — most time is spent actively working, not waiting."
-                : m.flowEfficiency >= 40
-                  ? "Good — some wait time exists. Look at pickup and review delays."
-                  : "Low — tasks spend a lot of time waiting. Consider faster pickups and reviews."}
+            <p className="text-[11px] text-[#5c4840] mt-1">
+              On average, each completed task delivers{" "}
+              <span className="text-[#d4aa70] font-semibold">{m.valueVelocity} credits</span> per calendar day from creation to done.
+              Higher means more value reaching the team faster — driven by either high-credit tasks or short lead times.
             </p>
           </div>
         )}
@@ -175,64 +167,63 @@ export default async function MetricsPage() {
             Department Flow
           </h2>
           <div className="grid gap-3">
-            {m.byTag.map((row) => {
-              const label =
-                row.tag === "UNTAGGED"
-                  ? "Untagged"
-                  : (TAG_LABEL as Record<string, string>)[row.tag] ?? row.tag;
-              return (
-                <div key={row.tag} className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-bold text-[#f0e4dc]">{label}</span>
-                    <div className="flex items-center gap-3 text-xs text-[#5c4840]">
-                      <span>{row.done} done</span>
-                      <span className="text-[#d4aa70] font-semibold">{row.credits} credits</span>
+            {(() => {
+              const maxVelocity = Math.max(...m.byTag.map(r => r.valueVelocity), 0.1);
+              return m.byTag.map((row) => {
+                const label =
+                  row.tag === "UNTAGGED"
+                    ? "Untagged"
+                    : (TAG_LABEL as Record<string, string>)[row.tag] ?? row.tag;
+                return (
+                  <div key={row.tag} className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-bold text-[#f0e4dc]">{label}</span>
+                      <div className="flex items-center gap-3 text-xs text-[#5c4840]">
+                        <span>{row.done} done</span>
+                        <span className="text-[#d4aa70] font-semibold">{row.credits} credits</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Flow pipeline row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    {[
-                      { label: "Pickup", value: fmt(row.avgWait), sub: "creation → assigned" },
-                      { label: "Work", value: fmt(row.avgActive), sub: "assigned → submitted", accent: true },
-                      { label: "Review", value: fmt(row.avgReview), sub: "submitted → done" },
-                      { label: "Lead Time", value: fmt(row.avgLead), sub: "end-to-end" },
-                    ].map((m) => (
-                      <div key={m.label} className="bg-[#130c09] rounded-lg p-2.5">
-                        <p className="text-[10px] font-bold text-[#5c4840] uppercase tracking-widest">{m.label}</p>
-                        <p className={`text-base font-bold mt-0.5 ${m.accent ? "text-[#c4857a]" : "text-[#f0e4dc]"}`}>
-                          {m.value}
+                    {/* Flow pipeline row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                      {[
+                        { label: "Pickup", value: fmt(row.avgWait), sub: "creation → assigned" },
+                        { label: "Work", value: fmt(row.avgActive), sub: "assigned → submitted", accent: true },
+                        { label: "Review", value: fmt(row.avgReview), sub: "submitted → done" },
+                        { label: "Lead Time", value: fmt(row.avgLead), sub: "end-to-end" },
+                      ].map((col) => (
+                        <div key={col.label} className="bg-[#130c09] rounded-lg p-2.5">
+                          <p className="text-[10px] font-bold text-[#5c4840] uppercase tracking-widest">{col.label}</p>
+                          <p className={`text-base font-bold mt-0.5 ${col.accent ? "text-[#c4857a]" : "text-[#f0e4dc]"}`}>
+                            {col.value}
+                          </p>
+                          <p className="text-[10px] text-[#5c4840] mt-0.5">{col.sub}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Value velocity bar */}
+                    {row.valueVelocity > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-[#5c4840]">Value velocity</span>
+                          <span className="text-[11px] font-bold text-[#d4aa70]">{row.valueVelocity} cr/day</span>
+                        </div>
+                        <div className="w-full bg-[#130c09] rounded-full h-1.5">
+                          <div
+                            className="bg-[#d4aa70] h-1.5 rounded-full"
+                            style={{ width: `${Math.round((row.valueVelocity / maxVelocity) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-[#5c4840] mt-1">
+                          Credits delivered per calendar day — higher means more value reaching the team faster.
                         </p>
-                        <p className="text-[10px] text-[#5c4840] mt-0.5">{m.sub}</p>
                       </div>
-                    ))}
+                    )}
                   </div>
-
-                  {/* Flow efficiency bar */}
-                  {row.flowEfficiency > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] text-[#5c4840]">Flow efficiency</span>
-                        <span className="text-[11px] font-bold text-[#c4857a]">{row.flowEfficiency}%</span>
-                      </div>
-                      <div className="w-full bg-[#130c09] rounded-full h-1.5">
-                        <div
-                          className="bg-[#c4857a] h-1.5 rounded-full"
-                          style={{ width: `${Math.min(row.flowEfficiency, 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-[10px] text-[#5c4840] mt-1">
-                        {row.flowEfficiency >= 70
-                          ? "Excellent — minimal wait time in this department."
-                          : row.flowEfficiency >= 40
-                            ? "Good — some queue time. Check pickup and review delays."
-                            : "Low — work sits waiting more than it moves. Investigate bottlenecks."}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </section>
       )}
@@ -252,6 +243,7 @@ export default async function MetricsPage() {
                   <th className="px-4 py-3 text-right">Avg Work</th>
                   <th className="px-4 py-3 text-right">Avg Review</th>
                   <th className="px-4 py-3 text-right">Credits</th>
+                  <th className="px-4 py-3 text-right">cr/day</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,6 +254,9 @@ export default async function MetricsPage() {
                     <td className="px-4 py-3 text-right text-[#9e8878]">{fmt(row.avgActive)}</td>
                     <td className="px-4 py-3 text-right text-[#9e8878]">{fmt(row.avgReview)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-[#d4aa70]">{row.credits}</td>
+                    <td className="px-4 py-3 text-right text-[#c4857a] font-semibold">
+                      {row.valueVelocity > 0 ? row.valueVelocity : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -270,12 +270,23 @@ export async function getMetrics() {
 
   const avgMs = (arr: number[]) =>
     arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const avgNum = (arr: number[]) =>
+    arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
+
+  const DAY_MS = 86400000;
 
   const avgWait = avgMs(completed.map(t => t.assignedAt.getTime() - t.createdAt.getTime()));
   const avgActive = avgMs(completed.map(t => t.submittedAt.getTime() - t.assignedAt.getTime()));
   const avgReview = avgMs(completed.map(t => t.completedAt.getTime() - t.submittedAt.getTime()));
   const avgLead = avgMs(completed.map(t => t.completedAt.getTime() - t.createdAt.getTime()));
-  const flowEfficiency = avgLead > 0 ? Math.round((avgActive / avgLead) * 100) : 0;
+
+  // Value velocity: credits delivered per calendar day (avg across completed tasks)
+  const valueVelocity = avgNum(
+    completed.map(t => {
+      const leadDays = (t.completedAt.getTime() - t.createdAt.getTime()) / DAY_MS;
+      return leadDays > 0 ? t.credits / leadDays : 0;
+    })
+  );
 
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   const weekStart = new Date(now.getTime() - weekMs);
@@ -291,26 +302,32 @@ export async function getMetrics() {
     activeTimes: number[];
     reviewTimes: number[];
     leadTimes: number[];
+    velocities: number[];
     credits: number;
   }>();
   for (const t of tasks) {
     const key = t.tag ?? "UNTAGGED";
     if (!tagMap.has(key))
-      tagMap.set(key, { done: 0, waitTimes: [], activeTimes: [], reviewTimes: [], leadTimes: [], credits: 0 });
+      tagMap.set(key, { done: 0, waitTimes: [], activeTimes: [], reviewTimes: [], leadTimes: [], velocities: [], credits: 0 });
     const e = tagMap.get(key)!;
     if (t.status === TaskStatus.DONE) {
       e.done++;
       if (t.assignedAt) e.waitTimes.push(t.assignedAt.getTime() - t.createdAt.getTime());
       if (t.assignedAt && t.submittedAt) e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
       if (t.submittedAt && t.completedAt) e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
-      if (t.completedAt) e.leadTimes.push(t.completedAt.getTime() - t.createdAt.getTime());
+      if (t.completedAt) {
+        const leadMs = t.completedAt.getTime() - t.createdAt.getTime();
+        e.leadTimes.push(leadMs);
+        const leadDays = leadMs / DAY_MS;
+        if (leadDays > 0) e.velocities.push(t.credits / leadDays);
+      }
       if (t.assignedTo) e.credits += netCredits(t);
     }
   }
 
   const personMap = new Map<
     string,
-    { name: string; email: string; done: number; activeTimes: number[]; reviewTimes: number[]; credits: number }
+    { name: string; email: string; done: number; activeTimes: number[]; reviewTimes: number[]; velocities: number[]; credits: number }
   >();
   for (const t of tasks) {
     if (!t.assignedTo || t.status !== TaskStatus.DONE) continue;
@@ -319,7 +336,7 @@ export async function getMetrics() {
       personMap.set(id, {
         name: t.assignedTo.name ?? t.assignedTo.email,
         email: t.assignedTo.email,
-        done: 0, activeTimes: [], reviewTimes: [], credits: 0,
+        done: 0, activeTimes: [], reviewTimes: [], velocities: [], credits: 0,
       });
     const e = personMap.get(id)!;
     e.done++;
@@ -328,35 +345,37 @@ export async function getMetrics() {
       e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
     if (t.submittedAt && t.completedAt)
       e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
+    if (t.completedAt) {
+      const leadDays = (t.completedAt.getTime() - t.createdAt.getTime()) / DAY_MS;
+      if (leadDays > 0) e.velocities.push(t.credits / leadDays);
+    }
   }
 
   return {
     pipeline,
     creditsDistributed,
     completedCount: completed.length,
-    avgWait, avgActive, avgReview, avgLead, flowEfficiency,
+    avgWait, avgActive, avgReview, avgLead, valueVelocity,
     thisWeekCount, lastWeekCount,
     byTag: [...tagMap.entries()]
-      .map(([tag, d]) => {
-        const avgActive = avgMs(d.activeTimes);
-        const avgLead = avgMs(d.leadTimes);
-        return {
-          tag,
-          done: d.done,
-          avgWait: avgMs(d.waitTimes),
-          avgActive,
-          avgReview: avgMs(d.reviewTimes),
-          avgLead,
-          flowEfficiency: avgLead > 0 ? Math.round((avgActive / avgLead) * 100) : 0,
-          credits: d.credits,
-        };
-      })
+      .map(([tag, d]) => ({
+        tag,
+        done: d.done,
+        avgWait: avgMs(d.waitTimes),
+        avgActive: avgMs(d.activeTimes),
+        avgReview: avgMs(d.reviewTimes),
+        avgLead: avgMs(d.leadTimes),
+        valueVelocity: avgNum(d.velocities),
+        credits: d.credits,
+      }))
       .filter(r => r.done > 0)
       .sort((a, b) => b.done - a.done),
     byPerson: [...personMap.values()]
       .map(p => ({
         name: p.name, email: p.email, done: p.done,
-        avgActive: avgMs(p.activeTimes), avgReview: avgMs(p.reviewTimes), credits: p.credits,
+        avgActive: avgMs(p.activeTimes), avgReview: avgMs(p.reviewTimes),
+        valueVelocity: avgNum(p.velocities),
+        credits: p.credits,
       }))
       .sort((a, b) => b.credits - a.credits),
   };
