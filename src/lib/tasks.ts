@@ -285,15 +285,25 @@ export async function getMetrics() {
     t => t.completedAt && t.completedAt >= lastWeekStart && t.completedAt < weekStart
   ).length;
 
-  const tagMap = new Map<string, { done: number; activeTimes: number[]; credits: number }>();
+  const tagMap = new Map<string, {
+    done: number;
+    waitTimes: number[];
+    activeTimes: number[];
+    reviewTimes: number[];
+    leadTimes: number[];
+    credits: number;
+  }>();
   for (const t of tasks) {
     const key = t.tag ?? "UNTAGGED";
-    if (!tagMap.has(key)) tagMap.set(key, { done: 0, activeTimes: [], credits: 0 });
+    if (!tagMap.has(key))
+      tagMap.set(key, { done: 0, waitTimes: [], activeTimes: [], reviewTimes: [], leadTimes: [], credits: 0 });
     const e = tagMap.get(key)!;
     if (t.status === TaskStatus.DONE) {
       e.done++;
-      if (t.assignedAt && t.submittedAt)
-        e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+      if (t.assignedAt) e.waitTimes.push(t.assignedAt.getTime() - t.createdAt.getTime());
+      if (t.assignedAt && t.submittedAt) e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+      if (t.submittedAt && t.completedAt) e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
+      if (t.completedAt) e.leadTimes.push(t.completedAt.getTime() - t.createdAt.getTime());
       if (t.assignedTo) e.credits += netCredits(t);
     }
   }
@@ -327,7 +337,20 @@ export async function getMetrics() {
     avgWait, avgActive, avgReview, avgLead, flowEfficiency,
     thisWeekCount, lastWeekCount,
     byTag: [...tagMap.entries()]
-      .map(([tag, d]) => ({ tag, done: d.done, avgActive: avgMs(d.activeTimes), credits: d.credits }))
+      .map(([tag, d]) => {
+        const avgActive = avgMs(d.activeTimes);
+        const avgLead = avgMs(d.leadTimes);
+        return {
+          tag,
+          done: d.done,
+          avgWait: avgMs(d.waitTimes),
+          avgActive,
+          avgReview: avgMs(d.reviewTimes),
+          avgLead,
+          flowEfficiency: avgLead > 0 ? Math.round((avgActive / avgLead) * 100) : 0,
+          credits: d.credits,
+        };
+      })
       .filter(r => r.done > 0)
       .sort((a, b) => b.done - a.done),
     byPerson: [...personMap.values()]

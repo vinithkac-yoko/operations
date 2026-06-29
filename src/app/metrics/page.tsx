@@ -168,37 +168,71 @@ export default async function MetricsPage() {
         </div>
       </section>
 
-      {/* By Department */}
+      {/* By Department — full flow breakdown */}
       {m.byTag.length > 0 && (
         <section>
           <h2 className="text-xs font-bold text-[#5c4840] uppercase tracking-widest mb-3">
-            By Department
+            Department Flow
           </h2>
-          <div className="bg-[#1a1210] border border-[#3d2820] rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-[#130c09]/60 text-left text-[#5c4840] text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3 text-right">Done</th>
-                  <th className="px-4 py-3 text-right">Avg Work Time</th>
-                  <th className="px-4 py-3 text-right">Credits Out</th>
-                </tr>
-              </thead>
-              <tbody>
-                {m.byTag.map((row) => (
-                  <tr key={row.tag} className="border-t border-[#3d2820] hover:bg-[#1f1712] transition-colors">
-                    <td className="px-4 py-3 text-[#f0e4dc] font-medium">
-                      {row.tag === "UNTAGGED"
-                        ? "Untagged"
-                        : (TAG_LABEL as Record<string, string>)[row.tag] ?? row.tag}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#9e8878]">{row.done}</td>
-                    <td className="px-4 py-3 text-right text-[#9e8878]">{fmt(row.avgActive)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-[#d4aa70]">{row.credits}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-3">
+            {m.byTag.map((row) => {
+              const label =
+                row.tag === "UNTAGGED"
+                  ? "Untagged"
+                  : (TAG_LABEL as Record<string, string>)[row.tag] ?? row.tag;
+              return (
+                <div key={row.tag} className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-[#f0e4dc]">{label}</span>
+                    <div className="flex items-center gap-3 text-xs text-[#5c4840]">
+                      <span>{row.done} done</span>
+                      <span className="text-[#d4aa70] font-semibold">{row.credits} credits</span>
+                    </div>
+                  </div>
+
+                  {/* Flow pipeline row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                    {[
+                      { label: "Pickup", value: fmt(row.avgWait), sub: "creation → assigned" },
+                      { label: "Work", value: fmt(row.avgActive), sub: "assigned → submitted", accent: true },
+                      { label: "Review", value: fmt(row.avgReview), sub: "submitted → done" },
+                      { label: "Lead Time", value: fmt(row.avgLead), sub: "end-to-end" },
+                    ].map((m) => (
+                      <div key={m.label} className="bg-[#130c09] rounded-lg p-2.5">
+                        <p className="text-[10px] font-bold text-[#5c4840] uppercase tracking-widest">{m.label}</p>
+                        <p className={`text-base font-bold mt-0.5 ${m.accent ? "text-[#c4857a]" : "text-[#f0e4dc]"}`}>
+                          {m.value}
+                        </p>
+                        <p className="text-[10px] text-[#5c4840] mt-0.5">{m.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Flow efficiency bar */}
+                  {row.flowEfficiency > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] text-[#5c4840]">Flow efficiency</span>
+                        <span className="text-[11px] font-bold text-[#c4857a]">{row.flowEfficiency}%</span>
+                      </div>
+                      <div className="w-full bg-[#130c09] rounded-full h-1.5">
+                        <div
+                          className="bg-[#c4857a] h-1.5 rounded-full"
+                          style={{ width: `${Math.min(row.flowEfficiency, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-[#5c4840] mt-1">
+                        {row.flowEfficiency >= 70
+                          ? "Excellent — minimal wait time in this department."
+                          : row.flowEfficiency >= 40
+                            ? "Good — some queue time. Check pickup and review delays."
+                            : "Low — work sits waiting more than it moves. Investigate bottlenecks."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
