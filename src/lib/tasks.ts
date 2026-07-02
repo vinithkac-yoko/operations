@@ -7,6 +7,10 @@ export type BoardSort = "newest" | "oldest" | "tag";
 
 export type Viewer = { isOwner: boolean; allowedTags: BoardTag[] };
 
+function doneCutoff() {
+  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+}
+
 function tagVisibilityFilter(viewer: Viewer) {
   if (viewer.isOwner) return {};
   return { OR: [{ tag: null }, { tag: { in: viewer.allowedTags } }] };
@@ -31,6 +35,7 @@ export async function listBoards(sort: BoardSort = "newest", viewer: Viewer) {
     where: {
       parentId: null,
       approvalStatus: BoardApprovalStatus.APPROVED,
+      NOT: { AND: [{ status: TaskStatus.DONE }, { completedAt: { lt: doneCutoff() } }] },
       ...tagVisibilityFilter(viewer),
     },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
@@ -64,7 +69,17 @@ export async function getBoardTree(
   }
 
   return prisma.task.findMany({
-    where: { boardId },
+    where: {
+      boardId,
+      // Hide non-root tasks completed more than 30 days ago; always show the root
+      NOT: {
+        AND: [
+          { parentId: { not: null } },
+          { status: TaskStatus.DONE },
+          { completedAt: { lt: doneCutoff() } },
+        ],
+      },
+    },
     include: {
       createdBy: true,
       assignedTo: true,
@@ -241,7 +256,7 @@ export async function getPipelineStats() {
     prisma.task.count({ where: { status: TaskStatus.TODO, approvalStatus: BoardApprovalStatus.APPROVED } }),
     prisma.task.count({ where: { status: TaskStatus.IN_PROGRESS, approvalStatus: BoardApprovalStatus.APPROVED } }),
     prisma.task.count({ where: { status: TaskStatus.IN_REVIEW, approvalStatus: BoardApprovalStatus.APPROVED } }),
-    prisma.task.count({ where: { status: TaskStatus.DONE, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.DONE, approvalStatus: BoardApprovalStatus.APPROVED, completedAt: { gte: doneCutoff() } } }),
   ]);
   return { todo, inProgress, inReview, done };
 }
