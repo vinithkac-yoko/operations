@@ -1,8 +1,10 @@
 import {
+  assignTaskAction,
   assignToSelfAction,
   createSubtaskAction,
   reviewTaskAction,
   submitForReviewAction,
+  updateCreditsAction,
 } from "@/app/actions";
 import { netCredits } from "@/lib/tasks";
 import { STATUS_BADGE, STATUS_BORDER, STATUS_LABEL } from "@/lib/status-styles";
@@ -49,15 +51,21 @@ function formatDuration(ms: number) {
   return hrs > 0 ? `${days}d ${hrs}h` : `${days}d`;
 }
 
+type UserOption = { id: string; name: string | null; email: string };
+
 export function TaskNode({
   task,
   allTasks,
   currentUserId,
+  isOwner = false,
+  users = [],
   depth = 0,
 }: {
   task: TaskWithRelations;
   allTasks: TaskWithRelations[];
   currentUserId: string;
+  isOwner?: boolean;
+  users?: UserOption[];
   depth?: number;
 }) {
   const children = allTasks.filter((t) => t.parentId === task.id);
@@ -65,6 +73,8 @@ export function TaskNode({
   const isCreator = task.createdById === currentUserId;
   const remaining = netCredits(task);
   const allChildrenDone = children.every((c) => c.status === "DONE");
+
+  const now = Date.now();
 
   const pickupDelay =
     task.assignedAt
@@ -79,46 +89,119 @@ export function TaskNode({
       ? formatDuration(task.completedAt.getTime() - task.submittedAt.getTime())
       : null;
 
+  // Live age for currently active tasks
+  const activeAge =
+    task.status === "IN_PROGRESS" && task.assignedAt && !task.submittedAt
+      ? formatDuration(now - task.assignedAt.getTime())
+      : null;
+  const reviewAge =
+    task.status === "IN_REVIEW" && task.submittedAt && !task.completedAt
+      ? formatDuration(now - task.submittedAt.getTime())
+      : null;
+  const waitAge =
+    task.status === "TODO" && !task.assignedAt
+      ? formatDuration(now - task.createdAt.getTime())
+      : null;
+
   return (
-    <div className={depth > 0 ? "ml-6 mt-3 border-l border-stone-800 pl-4" : "mt-3"}>
+    <div className={depth > 0 ? "ml-6 mt-3 border-l border-[#3d2820] pl-4" : "mt-3"}>
       <div
-        className={`bg-[#262420] border ${STATUS_BORDER[task.status]} rounded-lg p-4 transition-colors`}
+        className={`bg-[#1a1210] border ${STATUS_BORDER[task.status]} rounded-xl p-4 transition-colors`}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="font-medium text-stone-100">{task.title}</span>
+          <span className="font-semibold text-[#f0e4dc]">{task.title}</span>
           <span className={`text-xs rounded-full px-2.5 py-1 font-medium flex-none ${STATUS_BADGE[task.status]}`}>
             {STATUS_LABEL[task.status]}
           </span>
         </div>
 
         {task.description && (
-          <p className="text-sm text-stone-400 mt-1 whitespace-pre-wrap">{task.description}</p>
+          <p className="text-sm text-[#9e8878] mt-1 whitespace-pre-wrap">{task.description}</p>
         )}
 
-        <p className="text-xs text-stone-500 mt-2">
-          <span className="text-amber-300 font-semibold">{task.credits} credits</span>{" "}
-          <span className="text-stone-600">({remaining} unclaimed)</span> · created by{" "}
+        <p className="text-xs text-[#5c4840] mt-2">
+          <span className="text-[#d4aa70] font-semibold">{task.credits} credits</span>{" "}
+          <span className="text-[#3d2820]">({remaining} unclaimed)</span> · created by{" "}
           {task.createdBy.name ?? task.createdBy.email}
           {task.assignedTo && ` · assigned to ${task.assignedTo.name ?? task.assignedTo.email}`}
         </p>
 
-        {(pickupDelay || inProgressDuration || reviewDuration) && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-stone-600">
-            {pickupDelay && <span>Picked up after {pickupDelay}</span>}
-            {inProgressDuration && <span>In progress {inProgressDuration}</span>}
-            {reviewDuration && <span>Reviewed in {reviewDuration}</span>}
-          </div>
+        {isOwner && (
+          <form action={updateCreditsAction} className="flex items-center gap-2 mt-1.5">
+            <input type="hidden" name="taskId" value={task.id} />
+            <input type="hidden" name="boardId" value={task.boardId} />
+            <span className="text-[11px] text-[#5c4840]">Credits</span>
+            <input
+              name="credits"
+              type="number"
+              min={1}
+              defaultValue={task.credits}
+              className="w-16 bg-[#130c09] border border-[#3d2820] rounded-md px-1.5 py-0.5 text-xs text-[#f0e4dc] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+            />
+            <button
+              type="submit"
+              className="text-[11px] text-[#c4857a] hover:text-[#d4958a] font-semibold transition-colors"
+            >
+              Update
+            </button>
+          </form>
         )}
+
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px]">
+          {/* Active counters for live tasks */}
+          {waitAge && (
+            <span className="text-[#9e8878]">
+              Waiting <span className="font-semibold text-[#c4857a]">{waitAge}</span> for pickup
+            </span>
+          )}
+          {activeAge && (
+            <span className="text-[#9e8878]">
+              In progress <span className="font-semibold text-[#c4857a]">{activeAge}</span>
+            </span>
+          )}
+          {reviewAge && (
+            <span className="text-[#9e8878]">
+              In review <span className="font-semibold text-amber-400">{reviewAge}</span>
+            </span>
+          )}
+          {/* Historical stats for completed tasks */}
+          {pickupDelay && <span className="text-[#5c4840]">Picked up after {pickupDelay}</span>}
+          {inProgressDuration && <span className="text-[#5c4840]">Worked {inProgressDuration}</span>}
+          {reviewDuration && <span className="text-[#5c4840]">Reviewed in {reviewDuration}</span>}
+        </div>
 
         <div className="flex flex-wrap gap-2 mt-3">
           {task.status === "TODO" && !task.assignedToId && (
-            <form action={assignToSelfAction}>
-              <input type="hidden" name="boardId" value={task.boardId} />
-              <input type="hidden" name="taskId" value={task.id} />
-              <button className="text-sm bg-stone-100 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-white transition-colors">
-                Assign to me
-              </button>
-            </form>
+            isOwner ? (
+              <form action={assignTaskAction} className="flex items-center gap-2">
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <select
+                  name="userId"
+                  required
+                  defaultValue=""
+                  className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+                >
+                  <option value="" disabled>Assign to…</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name ?? u.email}
+                    </option>
+                  ))}
+                </select>
+                <button className="text-sm bg-[#c4857a] text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
+                  Assign
+                </button>
+              </form>
+            ) : (
+              <form action={assignToSelfAction}>
+                <input type="hidden" name="boardId" value={task.boardId} />
+                <input type="hidden" name="taskId" value={task.id} />
+                <button className="text-sm bg-[#c4857a] text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
+                  Assign to me
+                </button>
+              </form>
+            )
           )}
 
           {task.status === "IN_PROGRESS" && isAssignee && (
@@ -128,20 +211,20 @@ export function TaskNode({
               <button
                 disabled={!allChildrenDone}
                 title={!allChildrenDone ? "All subtasks must be Done first" : undefined}
-                className="text-sm bg-amber-500/90 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-amber-400 transition-colors disabled:opacity-30 disabled:hover:bg-amber-500/90"
+                className="text-sm bg-amber-500/90 text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-amber-400 transition-colors disabled:opacity-30 disabled:hover:bg-amber-500/90"
               >
                 Submit for review
               </button>
             </form>
           )}
 
-          {task.status === "IN_REVIEW" && isCreator && (
+          {task.status === "IN_REVIEW" && (isCreator || isOwner) && (
             <>
               <form action={reviewTaskAction}>
                 <input type="hidden" name="boardId" value={task.boardId} />
                 <input type="hidden" name="taskId" value={task.id} />
                 <input type="hidden" name="decision" value="approve" />
-                <button className="text-sm bg-emerald-500/90 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-emerald-400 transition-colors">
+                <button className="text-sm bg-emerald-500/90 text-[#0d0908] font-semibold rounded-lg px-3 py-1.5 hover:bg-emerald-400 transition-colors">
                   Approve & mark Done
                 </button>
               </form>
@@ -149,7 +232,7 @@ export function TaskNode({
                 <input type="hidden" name="boardId" value={task.boardId} />
                 <input type="hidden" name="taskId" value={task.id} />
                 <input type="hidden" name="decision" value="reject" />
-                <button className="text-sm bg-red-500/10 text-red-300 border border-red-500/25 font-medium rounded-md px-3 py-1.5 hover:bg-red-500/20 transition-colors">
+                <button className="text-sm bg-red-500/10 text-red-300 border border-red-500/25 font-medium rounded-lg px-3 py-1.5 hover:bg-red-500/20 transition-colors">
                   Reject → back to Todo
                 </button>
               </form>
@@ -160,22 +243,22 @@ export function TaskNode({
         {task.status === "IN_PROGRESS" && isAssignee && remaining > 0 && (
           <form
             action={createSubtaskAction}
-            className="mt-4 grid gap-2 max-w-sm border-t border-stone-800 pt-3"
+            className="mt-4 grid gap-2 max-w-sm border-t border-[#3d2820] pt-3"
           >
             <input type="hidden" name="parentId" value={task.id} />
-            <p className="text-xs text-stone-500">
-              Split off a subtask (up to <span className="text-amber-300">{remaining}</span> credits)
+            <p className="text-xs text-[#5c4840]">
+              Split off a subtask (up to <span className="text-[#d4aa70]">{remaining}</span> credits)
             </p>
             <input
               name="title"
               placeholder="Subtask title"
               required
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-2.5 py-1.5 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+              className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
             />
             <textarea
               name="description"
               placeholder="Description (optional)"
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-2.5 py-1.5 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+              className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
             />
             <input
               name="credits"
@@ -184,9 +267,9 @@ export function TaskNode({
               max={remaining}
               placeholder="Credits"
               required
-              className="bg-[#1f1e1d] border border-stone-700 rounded-md px-2.5 py-1.5 text-sm text-stone-100 placeholder:text-stone-500 focus:outline-none focus:border-stone-400"
+              className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
             />
-            <button className="bg-stone-100 text-stone-900 font-medium rounded-md px-3 py-1.5 text-sm w-fit hover:bg-white transition-colors">
+            <button className="bg-[#c4857a] text-[#0d0908] font-bold rounded-lg px-3 py-1.5 text-sm w-fit hover:bg-[#d4958a] transition-colors">
               Create subtask
             </button>
           </form>
@@ -201,6 +284,8 @@ export function TaskNode({
           task={child}
           allTasks={allTasks}
           currentUserId={currentUserId}
+          isOwner={isOwner}
+          users={users}
           depth={depth + 1}
         />
       ))}

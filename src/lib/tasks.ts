@@ -7,6 +7,10 @@ export type BoardSort = "newest" | "oldest" | "tag";
 
 export type Viewer = { isOwner: boolean; allowedTags: BoardTag[] };
 
+function doneCutoff() {
+  return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+}
+
 function tagVisibilityFilter(viewer: Viewer) {
   if (viewer.isOwner) return {};
   return { OR: [{ tag: null }, { tag: { in: viewer.allowedTags } }] };
@@ -31,6 +35,7 @@ export async function listBoards(sort: BoardSort = "newest", viewer: Viewer) {
     where: {
       parentId: null,
       approvalStatus: BoardApprovalStatus.APPROVED,
+      NOT: { AND: [{ status: TaskStatus.DONE }, { completedAt: { lt: doneCutoff() } }] },
       ...tagVisibilityFilter(viewer),
     },
     include: { createdBy: true, assignedTo: true, children: { select: { credits: true } } },
@@ -64,7 +69,17 @@ export async function getBoardTree(
   }
 
   return prisma.task.findMany({
-    where: { boardId },
+    where: {
+      boardId,
+      // Hide non-root tasks completed more than 30 days ago; always show the root
+      NOT: {
+        AND: [
+          { parentId: { not: null } },
+          { status: TaskStatus.DONE },
+          { completedAt: { lt: doneCutoff() } },
+        ],
+      },
+    },
     include: {
       createdBy: true,
       assignedTo: true,
@@ -174,9 +189,15 @@ export async function assignToSelf(userId: string, taskId: string) {
     where: { id: taskId, status: TaskStatus.TODO, assignedToId: null },
     data: { assignedToId: userId, status: TaskStatus.IN_PROGRESS, assignedAt: new Date() },
   });
-  if (result.count === 0) {
-    throw new TaskError("Task is no longer available to assign.");
-  }
+  if (result.count === 0) throw new TaskError("Task is no longer available to assign.");
+}
+
+export async function assignTaskToUser(taskId: string, targetUserId: string) {
+  const result = await prisma.task.updateMany({
+    where: { id: taskId, status: TaskStatus.TODO, assignedToId: null },
+    data: { assignedToId: targetUserId, status: TaskStatus.IN_PROGRESS, assignedAt: new Date() },
+  });
+  if (result.count === 0) throw new TaskError("Task is no longer available to assign.");
 }
 
 export async function submitForReview(userId: string, taskId: string) {
@@ -201,13 +222,14 @@ export async function submitForReview(userId: string, taskId: string) {
 export async function reviewTask(
   userId: string,
   taskId: string,
-  decision: "approve" | "reject"
+  decision: "approve" | "reject",
+  isOwner = false
 ) {
   return prisma.$transaction(async (tx) => {
     const task = await tx.task.findUnique({ where: { id: taskId } });
     if (!task) throw new TaskError("Task not found.");
-    if (task.createdById !== userId) {
-      throw new TaskError("Only the person who created this task can review it.");
+    if (!isOwner && task.createdById !== userId) {
+      throw new TaskError("Only the task creator or an owner can review this task.");
     }
     if (task.status !== TaskStatus.IN_REVIEW) throw new TaskError("Task is not awaiting review.");
 
@@ -227,6 +249,152 @@ export async function reviewTask(
       },
     });
   });
+}
+
+export async function getPipelineStats() {
+  const [todo, inProgress, inReview, done] = await Promise.all([
+    prisma.task.count({ where: { status: TaskStatus.TODO, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.IN_PROGRESS, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.IN_REVIEW, approvalStatus: BoardApprovalStatus.APPROVED } }),
+    prisma.task.count({ where: { status: TaskStatus.DONE, approvalStatus: BoardApprovalStatus.APPROVED, completedAt: { gte: doneCutoff() } } }),
+  ]);
+  return { todo, inProgress, inReview, done };
+}
+
+export async function getMetrics() {
+  const now = new Date();
+
+  const tasks = await prisma.task.findMany({
+    where: { approvalStatus: BoardApprovalStatus.APPROVED },
+    include: {
+      assignedTo: { select: { id: true, name: true, email: true } },
+      children: { select: { credits: true } },
+    },
+  });
+
+  const pipeline = { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 };
+  let creditsDistributed = 0;
+  for (const t of tasks) {
+    pipeline[t.status as keyof typeof pipeline]++;
+    if (t.status === TaskStatus.DONE && t.assignedTo) creditsDistributed += netCredits(t);
+  }
+
+  const completed = tasks.filter(
+    (t): t is typeof t & { assignedAt: Date; submittedAt: Date; completedAt: Date } =>
+      t.status === TaskStatus.DONE && !!t.assignedAt && !!t.submittedAt && !!t.completedAt
+  );
+
+  const avgMs = (arr: number[]) =>
+    arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+  const avgNum = (arr: number[]) =>
+    arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : 0;
+
+  const DAY_MS = 86400000;
+
+  const avgWait = avgMs(completed.map(t => t.assignedAt.getTime() - t.createdAt.getTime()));
+  const avgActive = avgMs(completed.map(t => t.submittedAt.getTime() - t.assignedAt.getTime()));
+  const avgReview = avgMs(completed.map(t => t.completedAt.getTime() - t.submittedAt.getTime()));
+  const avgLead = avgMs(completed.map(t => t.completedAt.getTime() - t.createdAt.getTime()));
+
+  // Value velocity: credits delivered per calendar day (avg across completed tasks)
+  const valueVelocity = avgNum(
+    completed.map(t => {
+      const leadDays = (t.completedAt.getTime() - t.createdAt.getTime()) / DAY_MS;
+      return leadDays > 0 ? t.credits / leadDays : 0;
+    })
+  );
+
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const weekStart = new Date(now.getTime() - weekMs);
+  const lastWeekStart = new Date(now.getTime() - 2 * weekMs);
+  const thisWeekCount = tasks.filter(t => t.completedAt && t.completedAt >= weekStart).length;
+  const lastWeekCount = tasks.filter(
+    t => t.completedAt && t.completedAt >= lastWeekStart && t.completedAt < weekStart
+  ).length;
+
+  const tagMap = new Map<string, {
+    done: number;
+    waitTimes: number[];
+    activeTimes: number[];
+    reviewTimes: number[];
+    leadTimes: number[];
+    velocities: number[];
+    credits: number;
+  }>();
+  for (const t of tasks) {
+    const key = t.tag ?? "UNTAGGED";
+    if (!tagMap.has(key))
+      tagMap.set(key, { done: 0, waitTimes: [], activeTimes: [], reviewTimes: [], leadTimes: [], velocities: [], credits: 0 });
+    const e = tagMap.get(key)!;
+    if (t.status === TaskStatus.DONE) {
+      e.done++;
+      if (t.assignedAt) e.waitTimes.push(t.assignedAt.getTime() - t.createdAt.getTime());
+      if (t.assignedAt && t.submittedAt) e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+      if (t.submittedAt && t.completedAt) e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
+      if (t.completedAt) {
+        const leadMs = t.completedAt.getTime() - t.createdAt.getTime();
+        e.leadTimes.push(leadMs);
+        const leadDays = leadMs / DAY_MS;
+        if (leadDays > 0) e.velocities.push(t.credits / leadDays);
+      }
+      if (t.assignedTo) e.credits += netCredits(t);
+    }
+  }
+
+  const personMap = new Map<
+    string,
+    { name: string; email: string; done: number; activeTimes: number[]; reviewTimes: number[]; velocities: number[]; credits: number }
+  >();
+  for (const t of tasks) {
+    if (!t.assignedTo || t.status !== TaskStatus.DONE) continue;
+    const id = t.assignedTo.id;
+    if (!personMap.has(id))
+      personMap.set(id, {
+        name: t.assignedTo.name ?? t.assignedTo.email,
+        email: t.assignedTo.email,
+        done: 0, activeTimes: [], reviewTimes: [], velocities: [], credits: 0,
+      });
+    const e = personMap.get(id)!;
+    e.done++;
+    e.credits += netCredits(t);
+    if (t.assignedAt && t.submittedAt)
+      e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
+    if (t.submittedAt && t.completedAt)
+      e.reviewTimes.push(t.completedAt.getTime() - t.submittedAt.getTime());
+    if (t.completedAt) {
+      const leadDays = (t.completedAt.getTime() - t.createdAt.getTime()) / DAY_MS;
+      if (leadDays > 0) e.velocities.push(t.credits / leadDays);
+    }
+  }
+
+  return {
+    pipeline,
+    creditsDistributed,
+    completedCount: completed.length,
+    avgWait, avgActive, avgReview, avgLead, valueVelocity,
+    thisWeekCount, lastWeekCount,
+    byTag: [...tagMap.entries()]
+      .map(([tag, d]) => ({
+        tag,
+        done: d.done,
+        avgWait: avgMs(d.waitTimes),
+        avgActive: avgMs(d.activeTimes),
+        avgReview: avgMs(d.reviewTimes),
+        avgLead: avgMs(d.leadTimes),
+        valueVelocity: avgNum(d.velocities),
+        credits: d.credits,
+      }))
+      .filter(r => r.done > 0)
+      .sort((a, b) => b.done - a.done),
+    byPerson: [...personMap.values()]
+      .map(p => ({
+        name: p.name, email: p.email, done: p.done,
+        avgActive: avgMs(p.activeTimes), avgReview: avgMs(p.reviewTimes),
+        valueVelocity: avgNum(p.velocities),
+        credits: p.credits,
+      }))
+      .sort((a, b) => b.credits - a.credits),
+  };
 }
 
 export async function getLeaderboard() {
@@ -275,6 +443,34 @@ export async function deleteBoard(boardId: string) {
         remaining.delete(t.id);
       }
     }
+  });
+}
+
+export async function updateTaskCredits(taskId: string, credits: number) {
+  if (!Number.isFinite(credits) || credits <= 0) throw new TaskError("Credits must be a positive number.");
+
+  return prisma.$transaction(async (tx) => {
+    const task = await tx.task.findUnique({
+      where: { id: taskId },
+      include: { children: { select: { credits: true } } },
+    });
+    if (!task) throw new TaskError("Task not found.");
+
+    const allocated = task.children.reduce((sum, c) => sum + c.credits, 0);
+    if (credits < allocated) {
+      throw new TaskError(
+        `Cannot set credits below ${allocated} — that amount is already allocated to subtasks.`
+      );
+    }
+
+    return tx.task.update({ where: { id: taskId }, data: { credits } });
+  });
+}
+
+export async function getTaskInfo(taskId: string) {
+  return prisma.task.findUnique({
+    where: { id: taskId },
+    select: { title: true, createdById: true, assignedToId: true, boardId: true },
   });
 }
 

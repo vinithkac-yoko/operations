@@ -15,8 +15,8 @@ export default async function AccessPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-stone-100">Department access</h1>
-        <p className="text-sm text-stone-400 mt-1">
+        <h1 className="text-xl font-bold text-[#f0e4dc]">Department access</h1>
+        <p className="text-sm text-[#9e8878] mt-1">
           People only see boards tagged with a department they&apos;ve been granted, plus any
           untagged boards. Grant departments below.
         </p>
@@ -27,16 +27,16 @@ export default async function AccessPage() {
           <form
             key={u.id}
             action={updateUserAccessAction}
-            className="bg-[#262420] border border-stone-800 rounded-lg p-4"
+            className="bg-[#1a1210] border border-[#3d2820] rounded-xl p-4"
           >
             <input type="hidden" name="userId" value={u.id} />
             <div className="flex items-center justify-between gap-3 mb-3">
               <div>
-                <span className="font-medium text-stone-100">{u.name ?? u.email}</span>
-                <span className="text-stone-500 text-sm ml-2">{u.email}</span>
+                <span className="font-semibold text-[#f0e4dc]">{u.name ?? u.email}</span>
+                <span className="text-[#5c4840] text-sm ml-2">{u.email}</span>
               </div>
               {u.isOwner && (
-                <span className="text-xs rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25 px-2 py-0.5 font-semibold uppercase tracking-wide">
+                <span className="text-xs rounded-full bg-[#c4857a]/10 text-[#c4857a] border border-[#c4857a]/30 px-2 py-0.5 font-semibold uppercase tracking-wide">
                   Owner · sees everything
                 </span>
               )}
@@ -45,19 +45,19 @@ export default async function AccessPage() {
               <>
                 <div className="flex flex-wrap gap-3">
                   {TAG_OPTIONS.map((tag) => (
-                    <label key={tag} className="flex items-center gap-1.5 text-sm text-stone-300">
+                    <label key={tag} className="flex items-center gap-1.5 text-sm text-[#9e8878]">
                       <input
                         type="checkbox"
                         name="tags"
                         value={tag}
                         defaultChecked={u.allowedTags.includes(tag)}
-                        className="accent-stone-300"
+                        className="accent-[#c4857a]"
                       />
                       {TAG_LABEL[tag]}
                     </label>
                   ))}
                 </div>
-                <button className="mt-3 text-sm bg-stone-100 text-stone-900 font-medium rounded-md px-3 py-1.5 hover:bg-white transition-colors">
+                <button className="mt-3 text-sm bg-[#c4857a] text-[#0d0908] font-bold rounded-lg px-3 py-1.5 hover:bg-[#d4958a] transition-colors">
                   Save access
                 </button>
               </>
