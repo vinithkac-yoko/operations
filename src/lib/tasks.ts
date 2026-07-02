@@ -451,6 +451,13 @@ export async function updateTaskCredits(taskId: string, credits: number) {
   });
 }
 
+export async function getTaskInfo(taskId: string) {
+  return prisma.task.findUnique({
+    where: { id: taskId },
+    select: { title: true, createdById: true, assignedToId: true, boardId: true },
+  });
+}
+
 export async function addComment(authorId: string, taskId: string, content: string) {
   const trimmed = content.trim();
   if (!trimmed) throw new TaskError("Comment cannot be empty.");

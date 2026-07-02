@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth, signIn, signOut } from "@/lib/auth";
 import * as tasks from "@/lib/tasks";
+import * as notify from "@/lib/notifications";
 import { BoardTag } from "@prisma/client";
 
 async function requireSession() {
@@ -47,14 +48,24 @@ export async function createBoardAction(formData: FormData) {
 export async function approveBoardAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can approve board proposals.");
-  await tasks.approveBoard(String(formData.get("boardId") ?? ""));
+  const boardId = String(formData.get("boardId") ?? "");
+  await tasks.approveBoard(boardId);
+  const board = await tasks.getTaskInfo(boardId);
+  if (board && board.createdById !== session.user.id) {
+    await notify.notifyBoardDecision(boardId, board.title, board.createdById, true);
+  }
   revalidatePath("/");
 }
 
 export async function rejectBoardAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can reject board proposals.");
-  await tasks.rejectBoard(String(formData.get("boardId") ?? ""));
+  const boardId = String(formData.get("boardId") ?? "");
+  const board = await tasks.getTaskInfo(boardId);
+  await tasks.rejectBoard(boardId);
+  if (board && board.createdById !== session.user.id) {
+    await notify.notifyBoardDecision(boardId, board.title, board.createdById, false);
+  }
   revalidatePath("/");
 }
 
@@ -92,6 +103,7 @@ export async function assignTaskAction(formData: FormData) {
   const targetUserId = String(formData.get("userId") ?? "");
   if (!targetUserId) throw new Error("Select a person to assign.");
   await tasks.assignTaskToUser(taskId, targetUserId);
+  await notify.notifyAssigned(taskId, targetUserId);
   revalidatePath(`/board/${boardId}`);
 }
 
@@ -100,6 +112,7 @@ export async function submitForReviewAction(formData: FormData) {
   const boardId = String(formData.get("boardId") ?? "");
   const taskId = String(formData.get("taskId") ?? "");
   await tasks.submitForReview(session.user.id, taskId);
+  await notify.notifySubmitted(taskId);
   revalidatePath(`/board/${boardId}`);
 }
 
@@ -108,7 +121,12 @@ export async function reviewTaskAction(formData: FormData) {
   const boardId = String(formData.get("boardId") ?? "");
   const taskId = String(formData.get("taskId") ?? "");
   const decision = String(formData.get("decision") ?? "") as "approve" | "reject";
+  // Fetch assignee before reject clears it
+  const taskInfo = await tasks.getTaskInfo(taskId);
   await tasks.reviewTask(session.user.id, taskId, decision);
+  if (taskInfo?.assignedToId && taskInfo.assignedToId !== session.user.id) {
+    await notify.notifyReviewed(taskId, taskInfo.title, taskInfo.assignedToId, decision);
+  }
   revalidatePath(`/board/${boardId}`);
 }
 
@@ -136,7 +154,18 @@ export async function addCommentAction(formData: FormData) {
   const boardId = String(formData.get("boardId") ?? "");
   const content = String(formData.get("content") ?? "");
   await tasks.addComment(session.user.id, taskId, content);
+  await notify.notifyComment(
+    taskId,
+    session.user.id,
+    session.user.name ?? session.user.email ?? "Someone"
+  );
   revalidatePath(`/board/${boardId}`);
+}
+
+export async function markAllNotificationsReadAction() {
+  const session = await requireSession();
+  await notify.markAllRead(session.user.id);
+  revalidatePath("/notifications");
 }
 
 export async function updateUserAccessAction(formData: FormData) {
