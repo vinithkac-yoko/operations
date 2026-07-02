@@ -207,13 +207,14 @@ export async function submitForReview(userId: string, taskId: string) {
 export async function reviewTask(
   userId: string,
   taskId: string,
-  decision: "approve" | "reject"
+  decision: "approve" | "reject",
+  isOwner = false
 ) {
   return prisma.$transaction(async (tx) => {
     const task = await tx.task.findUnique({ where: { id: taskId } });
     if (!task) throw new TaskError("Task not found.");
-    if (task.createdById !== userId) {
-      throw new TaskError("Only the person who created this task can review it.");
+    if (!isOwner && task.createdById !== userId) {
+      throw new TaskError("Only the task creator or an owner can review this task.");
     }
     if (task.status !== TaskStatus.IN_REVIEW) throw new TaskError("Task is not awaiting review.");
 

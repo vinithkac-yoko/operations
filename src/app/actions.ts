@@ -123,7 +123,7 @@ export async function reviewTaskAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "") as "approve" | "reject";
   // Fetch assignee before reject clears it
   const taskInfo = await tasks.getTaskInfo(taskId);
-  await tasks.reviewTask(session.user.id, taskId, decision);
+  await tasks.reviewTask(session.user.id, taskId, decision, session.user.isOwner);
   if (taskInfo?.assignedToId && taskInfo.assignedToId !== session.user.id) {
     await notify.notifyReviewed(taskId, taskInfo.title, taskInfo.assignedToId, decision);
   }

@@ -218,7 +218,7 @@ export function TaskNode({
             </form>
           )}
 
-          {task.status === "IN_REVIEW" && isCreator && (
+          {task.status === "IN_REVIEW" && (isCreator || isOwner) && (
             <>
               <form action={reviewTaskAction}>
                 <input type="hidden" name="boardId" value={task.boardId} />
