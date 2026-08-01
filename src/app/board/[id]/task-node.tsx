@@ -5,6 +5,7 @@ import {
   reviewTaskAction,
   submitForReviewAction,
   updateCreditsAction,
+  updateTaskDetailsAction,
 } from "@/app/actions";
 import { netCredits } from "@/lib/tasks";
 import { STATUS_BADGE, STATUS_BORDER, STATUS_LABEL } from "@/lib/status-styles";
@@ -145,6 +146,37 @@ export function TaskNode({
               Update
             </button>
           </form>
+        )}
+
+        {/* Edit title/description: owner anytime, or task creator while proposal is pending */}
+        {(isOwner || (isCreator && task.approvalStatus === "PENDING" && task.parentId === null)) && (
+          <details className="mt-2">
+            <summary className="text-[11px] text-[#5c4840] hover:text-[#9e8878] cursor-pointer select-none w-fit transition-colors">
+              Edit title &amp; description
+            </summary>
+            <form action={updateTaskDetailsAction} className="mt-2 grid gap-2 max-w-sm">
+              <input type="hidden" name="taskId" value={task.id} />
+              <input type="hidden" name="boardId" value={task.boardId} />
+              <input
+                name="title"
+                defaultValue={task.title}
+                required
+                className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+              />
+              <textarea
+                name="description"
+                defaultValue={task.description ?? ""}
+                placeholder="Description (optional)"
+                className="bg-[#130c09] border border-[#3d2820] rounded-lg px-2.5 py-1.5 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors"
+              />
+              <button
+                type="submit"
+                className="text-[11px] text-[#c4857a] hover:text-[#d4958a] font-semibold transition-colors w-fit"
+              >
+                Save changes
+              </button>
+            </form>
+          </details>
         )}
 
         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px]">

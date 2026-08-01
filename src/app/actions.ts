@@ -168,6 +168,25 @@ export async function markAllNotificationsReadAction() {
   revalidatePath("/notifications");
 }
 
+export async function markNotificationReadAction(formData: FormData) {
+  const session = await requireSession();
+  const notificationId = String(formData.get("notificationId") ?? "");
+  await notify.markRead(notificationId, session.user.id);
+  revalidatePath("/notifications");
+}
+
+export async function updateTaskDetailsAction(formData: FormData) {
+  const session = await requireSession();
+  const taskId = String(formData.get("taskId") ?? "");
+  const boardId = String(formData.get("boardId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  if (!title) throw new Error("Title cannot be empty.");
+  await tasks.updateTaskDetails(taskId, { title, description }, session.user.id, session.user.isOwner);
+  revalidatePath(`/board/${boardId}`);
+  revalidatePath("/");
+}
+
 export async function updateUserAccessAction(formData: FormData) {
   const session = await requireSession();
   if (!session.user.isOwner) throw new Error("Only the owner can manage access.");

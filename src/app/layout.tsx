@@ -53,6 +53,12 @@ export default async function RootLayout({
             >
               Leaderboard
             </Link>
+            <Link
+              href="/archive"
+              className="text-[#9e8878] hover:text-[#f0e4dc] transition-colors"
+            >
+              Archive
+            </Link>
             {session?.user?.isOwner && (
               <>
                 <Link

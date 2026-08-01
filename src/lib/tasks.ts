@@ -43,6 +43,58 @@ export async function listBoards(sort: BoardSort = "newest", viewer: Viewer) {
   });
 }
 
+export async function listMyPendingBoards(userId: string) {
+  return prisma.task.findMany({
+    where: { parentId: null, approvalStatus: BoardApprovalStatus.PENDING, createdById: userId },
+    include: { createdBy: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function listArchivedBoards(viewer: Viewer) {
+  return prisma.task.findMany({
+    where: {
+      parentId: null,
+      approvalStatus: BoardApprovalStatus.APPROVED,
+      status: TaskStatus.DONE,
+      completedAt: { lt: doneCutoff() },
+      ...tagVisibilityFilter(viewer),
+    },
+    include: { createdBy: true, children: { select: { credits: true } } },
+    orderBy: { completedAt: "desc" },
+  });
+}
+
+export async function updateTaskDetails(
+  taskId: string,
+  data: { title?: string; description?: string },
+  userId: string,
+  isOwner: boolean
+) {
+  const task = await prisma.task.findUnique({ where: { id: taskId } });
+  if (!task) throw new TaskError("Task not found.");
+
+  if (!isOwner) {
+    const isPendingProposal =
+      task.approvalStatus === BoardApprovalStatus.PENDING &&
+      task.parentId === null &&
+      task.createdById === userId;
+    if (!isPendingProposal) throw new TaskError("You can only edit your own pending proposals.");
+  }
+
+  const update: { title?: string; description?: string | null } = {};
+  if (data.title !== undefined) {
+    const t = data.title.trim();
+    if (!t) throw new TaskError("Title cannot be empty.");
+    update.title = t;
+  }
+  if (data.description !== undefined) {
+    update.description = data.description.trim() || null;
+  }
+
+  return prisma.task.update({ where: { id: taskId }, data: update });
+}
+
 export async function listPendingBoards() {
   return prisma.task.findMany({
     where: { parentId: null, approvalStatus: BoardApprovalStatus.PENDING },

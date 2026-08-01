@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { listBoards, listPendingBoards, getPipelineStats, netCredits, type BoardSort } from "@/lib/tasks";
+import { listBoards, listMyPendingBoards, listPendingBoards, getPipelineStats, netCredits, type BoardSort } from "@/lib/tasks";
 import {
   approveBoardAction,
   createBoardAction,
@@ -39,6 +39,7 @@ export default async function HomePage({
     allowedTags: session.user.allowedTags,
   });
   const pendingBoards = session.user.isOwner ? await listPendingBoards() : [];
+  const myPendingBoards = !session.user.isOwner ? await listMyPendingBoards(session.user.id) : [];
   const tagOptions = session.user.isOwner ? TAG_OPTIONS : session.user.allowedTags;
   const stats = await getPipelineStats();
 
@@ -109,6 +110,30 @@ export default async function HomePage({
           </button>
         </form>
       </section>
+
+      {!session.user.isOwner && myPendingBoards.length > 0 && (
+        <section>
+          <h2 className="font-bold text-[#f0e4dc] mb-3">My Proposals</h2>
+          <p className="text-sm text-[#9e8878] -mt-1 mb-3">Awaiting owner approval. You can edit them until they're reviewed.</p>
+          <div className="grid gap-3">
+            {myPendingBoards.map((board) => (
+              <Link
+                key={board.id}
+                href={`/board/${board.id}`}
+                className="block bg-[#1a1210] border border-[#c4857a]/20 rounded-xl p-4 hover:bg-[#1f1712] transition-colors"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold text-[#f0e4dc]">{board.title}</span>
+                  <span className="text-xs rounded-full px-2.5 py-1 font-medium bg-[#c4857a]/10 text-[#c4857a] border border-[#c4857a]/25">
+                    Pending
+                  </span>
+                </div>
+                <p className="text-xs text-[#5c4840] mt-1">Proposed by you · awaiting approval</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {session.user.isOwner && pendingBoards.length > 0 && (
         <section>
