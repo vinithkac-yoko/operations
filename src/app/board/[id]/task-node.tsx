@@ -150,9 +150,13 @@ export function TaskNode({
 
         {/* Edit title/description: owner anytime, or the board's creator at any point */}
         {(isOwner || (isCreator && task.parentId === null)) && (
-          <details className="mt-2">
-            <summary className="text-[11px] text-[#5c4840] hover:text-[#9e8878] cursor-pointer select-none w-fit transition-colors">
-              Edit title &amp; description
+          <details className="mt-2 group">
+            <summary className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#c4857a] hover:text-[#d4958a] cursor-pointer select-none w-fit transition-colors rounded-lg border border-[#3d2820] hover:border-[#c4857a]/40 px-2.5 py-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+              <span className="group-open:hidden">Edit title &amp; description</span>
+              <span className="hidden group-open:inline">Close editor</span>
             </summary>
             <form action={updateTaskDetailsAction} className="mt-2 grid gap-2 max-w-sm">
               <input type="hidden" name="taskId" value={task.id} />
