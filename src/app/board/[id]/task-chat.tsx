@@ -10,7 +10,7 @@ type Comment = {
 
 const AVATAR_COLORS = [
   "bg-violet-600",
-  "bg-rose-600",
+  "bg-[#c4857a]",
   "bg-sky-600",
   "bg-teal-600",
   "bg-amber-600",
@@ -55,8 +55,8 @@ export function TaskChat({
   comments: Comment[];
 }) {
   return (
-    <div className="mt-4 pt-4 border-t border-stone-800/70">
-      <p className="text-[11px] font-semibold text-stone-500 uppercase tracking-widest mb-3">
+    <div className="mt-4 pt-4 border-t border-[#3d2820]">
+      <p className="text-[11px] font-bold text-[#5c4840] uppercase tracking-widest mb-3">
         Discussion
       </p>
 
@@ -73,10 +73,10 @@ export function TaskChat({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-0.5">
-                    <span className="text-xs font-semibold text-stone-200">{display}</span>
-                    <span className="text-[11px] text-stone-600">{timeAgo(c.createdAt)}</span>
+                    <span className="text-xs font-semibold text-[#f0e4dc]">{display}</span>
+                    <span className="text-[11px] text-[#5c4840]">{timeAgo(c.createdAt)}</span>
                   </div>
-                  <p className="text-sm text-stone-300 whitespace-pre-wrap break-words leading-relaxed">
+                  <p className="text-sm text-[#9e8878] whitespace-pre-wrap break-words leading-relaxed">
                     {c.content}
                   </p>
                 </div>
@@ -94,11 +94,11 @@ export function TaskChat({
           placeholder="Add a comment…"
           rows={2}
           required
-          className="flex-1 bg-[#1a1918] border border-stone-700 rounded-md px-3 py-2 text-sm text-stone-100 placeholder:text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
+          className="flex-1 bg-[#130c09] border border-[#3d2820] rounded-lg px-3 py-2 text-sm text-[#f0e4dc] placeholder:text-[#5c4840] focus:outline-none focus:border-[#c4857a]/50 transition-colors resize-none"
         />
         <button
           type="submit"
-          className="self-end bg-stone-700 hover:bg-stone-600 text-stone-100 rounded-md px-3 py-2 text-sm font-medium transition-colors whitespace-nowrap"
+          className="self-end bg-[#c4857a] hover:bg-[#d4958a] text-[#0d0908] rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap"
         >
           Send
         </button>
