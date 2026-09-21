@@ -11,6 +11,10 @@ function doneCutoff() {
   return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 }
 
+function metricsCutoff() {
+  return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+}
+
 function tagVisibilityFilter(viewer: Viewer) {
   if (viewer.isOwner) return {};
   return { OR: [{ tag: null }, { tag: { in: viewer.allowedTags } }] };
@@ -324,16 +328,20 @@ export async function getMetrics() {
     },
   });
 
+  const cutoff = metricsCutoff();
+  const isRecentDone = (t: (typeof tasks)[number]) =>
+    t.status === TaskStatus.DONE && !!t.completedAt && t.completedAt >= cutoff;
+
   const pipeline = { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 };
   let creditsDistributed = 0;
   for (const t of tasks) {
     pipeline[t.status as keyof typeof pipeline]++;
-    if (t.status === TaskStatus.DONE && t.assignedTo) creditsDistributed += netCredits(t);
+    if (isRecentDone(t) && t.assignedTo) creditsDistributed += netCredits(t);
   }
 
   const completed = tasks.filter(
     (t): t is typeof t & { assignedAt: Date; submittedAt: Date; completedAt: Date } =>
-      t.status === TaskStatus.DONE && !!t.assignedAt && !!t.submittedAt && !!t.completedAt
+      isRecentDone(t) && !!t.assignedAt && !!t.submittedAt
   );
 
   const avgMs = (arr: number[]) =>
@@ -378,7 +386,7 @@ export async function getMetrics() {
     if (!tagMap.has(key))
       tagMap.set(key, { done: 0, waitTimes: [], activeTimes: [], reviewTimes: [], leadTimes: [], velocities: [], credits: 0 });
     const e = tagMap.get(key)!;
-    if (t.status === TaskStatus.DONE) {
+    if (isRecentDone(t)) {
       e.done++;
       if (t.assignedAt) e.waitTimes.push(t.assignedAt.getTime() - t.createdAt.getTime());
       if (t.assignedAt && t.submittedAt) e.activeTimes.push(t.submittedAt.getTime() - t.assignedAt.getTime());
@@ -398,7 +406,7 @@ export async function getMetrics() {
     { name: string; email: string; done: number; activeTimes: number[]; reviewTimes: number[]; velocities: number[]; credits: number }
   >();
   for (const t of tasks) {
-    if (!t.assignedTo || t.status !== TaskStatus.DONE) continue;
+    if (!t.assignedTo || !isRecentDone(t)) continue;
     const id = t.assignedTo.id;
     if (!personMap.has(id))
       personMap.set(id, {

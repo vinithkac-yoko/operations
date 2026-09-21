@@ -48,7 +48,7 @@ export default async function MetricsPage() {
       <div>
         <h1 className="text-xl font-bold text-[#f0e4dc]">Team Metrics</h1>
         <p className="text-sm text-[#9e8878] mt-1">
-          Across all approved tasks · {m.completedCount} completed with full timestamps
+          Last 3 months · {m.completedCount} completed with full timestamps
         </p>
       </div>
 
