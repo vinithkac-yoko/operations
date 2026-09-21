@@ -79,11 +79,8 @@ export async function updateTaskDetails(
   if (!task) throw new TaskError("Task not found.");
 
   if (!isOwner) {
-    const isPendingProposal =
-      task.approvalStatus === BoardApprovalStatus.PENDING &&
-      task.parentId === null &&
-      task.createdById === userId;
-    if (!isPendingProposal) throw new TaskError("You can only edit your own pending proposals.");
+    const isOwnBoard = task.parentId === null && task.createdById === userId;
+    if (!isOwnBoard) throw new TaskError("You can only edit boards you proposed.");
   }
 
   const update: { title?: string; description?: string | null } = {};
@@ -120,7 +117,12 @@ export async function getBoardTree(
   ) {
     return null;
   }
-  if (!viewer.isOwner && root.tag && !viewer.allowedTags.includes(root.tag)) {
+  if (
+    !viewer.isOwner &&
+    root.createdById !== viewer.userId &&
+    root.tag &&
+    !viewer.allowedTags.includes(root.tag)
+  ) {
     return null;
   }
 

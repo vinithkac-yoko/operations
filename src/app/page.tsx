@@ -114,7 +114,7 @@ export default async function HomePage({
       {!session.user.isOwner && myPendingBoards.length > 0 && (
         <section>
           <h2 className="font-bold text-[#f0e4dc] mb-3">My Proposals</h2>
-          <p className="text-sm text-[#9e8878] -mt-1 mb-3">Awaiting owner approval. You can edit them until they're reviewed.</p>
+          <p className="text-sm text-[#9e8878] -mt-1 mb-3">Awaiting owner approval. You can always edit these, even after they're reviewed.</p>
           <div className="grid gap-3">
             {myPendingBoards.map((board) => (
               <Link

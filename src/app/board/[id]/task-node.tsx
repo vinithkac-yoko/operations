@@ -148,8 +148,8 @@ export function TaskNode({
           </form>
         )}
 
-        {/* Edit title/description: owner anytime, or task creator while proposal is pending */}
-        {(isOwner || (isCreator && task.approvalStatus === "PENDING" && task.parentId === null)) && (
+        {/* Edit title/description: owner anytime, or the board's creator at any point */}
+        {(isOwner || (isCreator && task.parentId === null)) && (
           <details className="mt-2">
             <summary className="text-[11px] text-[#5c4840] hover:text-[#9e8878] cursor-pointer select-none w-fit transition-colors">
               Edit title &amp; description
